@@ -1,0 +1,23 @@
+# Core RL framework
+torch>=2.0.0
+torchrl>=0.2.0
+tensordict>=0.2.0
+
+# Environment and simulation
+gymnasium>=0.29.0
+https://github.com/son-engr-kr/mujoco-son/releases/download/v3.3.3%2Bson2/mujoco-3.3.3+son2-cp311-cp311-win_amd64.whl
+
+
+# Configuration and logging
+pyyaml>=6.0
+tensorboard>=2.14.0
+
+# Utilities
+numpy>=1.24.0
+tqdm>=4.65.0
+
+# Optional: for video recording and visualization
+opencv-python>=4.8.0
+matplotlib>=3.7.0
+imageio>=2.31.0
+imageio-ffmpeg>=0.4.9
