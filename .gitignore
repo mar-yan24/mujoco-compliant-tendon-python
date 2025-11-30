@@ -46,3 +46,7 @@ checkpoints/
 videos/
 *.pt
 *.pth
+
+
+# MuJoCo
+/MUJOCO_LOG.TXT
