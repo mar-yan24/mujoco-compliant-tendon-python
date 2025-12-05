@@ -50,3 +50,6 @@ videos/
 
 # MuJoCo
 /MUJOCO_LOG.TXT
+
+# data
+/muscle_flv_extracted/
