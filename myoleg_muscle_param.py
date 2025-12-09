@@ -110,33 +110,31 @@ def compute_forces_at_velocity(model, data, velocity, lengths, activation=1.0):
     forces = []
     
     for length in lengths:
-        # Ensure non-negative length if physical constraints require
-        if length < 0.001: length = 0.001
+        for internal_it in range(2):
+            data.qvel[0] = velocity
+            data.act[0] = activation
+            data.ctrl[0] = activation
+            
+            # Update length (qpos)
+            # Ensure non-negative length if physical constraints require
+            if length < 0.001: length = 0.001
+            data.qpos[0] = -length
+            
+            # Compute dynamics
+            # mj_forward computes position-dependent forces (active+passive) given qpos, qvel, act
+            # mujoco.mj_forward(model, data)
 
-        # Perturbation step to initialize/settle muscle state
-        data.qpos[0] = -length - 1e-5
-        data.qvel[0] = velocity
-        data.act[0] = activation
-        data.ctrl[0] = activation
-        mujoco.mj_fwdVelocity(model, data)
-        mujoco.mj_forward(model, data)
-        mujoco.mj_fwdActuation(model, data)
-        
-        # Actual measurement step
-        data.qpos[0] = -length
-        data.qvel[0] = velocity
-        data.act[0] = activation
-        data.ctrl[0] = activation
-        
-        mujoco.mj_fwdVelocity(model, data)
-        mujoco.mj_forward(model, data)
-        mujoco.mj_fwdActuation(model, data)
+
+            # mujoco.mj_fwdVelocity(model, data)
+            mujoco.mj_fwdVelocity(model, data)
+            mujoco.mj_forward(model, data)
+            mujoco.mj_fwdActuation(model, data)
 
         
         
         # MuJoCo actuatorfrc sign can be opposite (contractile pull shows as negative).
         # Flip sign to store tendon tensile force as positive.
-        forces.append(-data.sensor("force_sensor").data[0])
+        forces.append(data.qfrc_actuator[0])
         
     return np.array(forces)
 
@@ -164,7 +162,7 @@ def load_length_force_sim(muscle_name, params_csv, data_dir):
     l_slack = float(p['tendon_slack_length'])
     v_max = float(p['max_contraction_velocity'])
 
-    csv_path = os.path.join(data_dir, f"{muscle_name}_sim_active.csv")
+    csv_path = os.path.join(data_dir, f"{muscle_name}_sim_total.csv")
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"Data file {csv_path} not found.")
 
@@ -434,20 +432,28 @@ def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle
     
     # Bounds: v_max fixed; others allowed to vary
     bounds = [
-        (base_F * 0.5, base_F * 1.5),          # F_max
-        (base_L_opt * 0.8, base_L_opt * 1.2),  # l_opt
-        (base_L_slack * 0.8, base_L_slack * 1.2), # l_slack
+        (base_F, base_F),          # F_max
+        (base_L_opt, base_L_opt),  # l_opt
+        (base_L_slack, base_L_slack), # l_slack
         (base_V_max, base_V_max),              # v_max fixed
-        # (0.56, 0.56),                            # W = 0.56
-        # (-2.995732274, -2.995732274),                          # C = -2.995732274
-        # (1.5, 1.5),                            # N = 1.5
-        # (5.0, 5.0),                            # K = 5.0
-        # (0.04, 0.04)                           # E_REF = 0.04
-        (0.1, 2.0),                            # W = 0.56
-        (-4.5, -2.0),                          # C = -2.995732274
+
+        # (base_F * 0.5, base_F * 1.5),          # F_max
+        # (base_L_opt * 0.8, base_L_opt * 1.2),  # l_opt
+        # (base_L_slack * 0.8, base_L_slack * 1.2), # l_slack
+        # (base_V_max, base_V_max),              # v_max fixed
+
+        
+        (0.56, 0.56),                            # W = 0.56
+        (-2.995732274, -2.995732274),                          # C = -2.995732274
         (1.5, 1.5),                            # N = 1.5
-        (4.0, 6.0),                            # K = 5.0
-        (0.01, 3.0)                           # E_REF = 0.04
+        (5.0, 5.0),                            # K = 5.0
+        (0.04, 0.04)                           # E_REF = 0.04
+
+        # (0.1, 2.0),                            # W = 0.56
+        # (-4.5, -2.0),                          # C = -2.995732274
+        # (1.5, 1.5),                            # N = 1.5
+        # (4.0, 6.0),                            # K = 5.0
+        # (0.01, 3.0)                           # E_REF = 0.04
     ]
     
     print(f"\n[Optimization] Starting optimization...")
@@ -478,7 +484,10 @@ def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle
     print(f"  - Status: {res.message}")
     print(f"  - Success: {res.success}")
     print(f"  - Final MSE: {res.fun:.6f}")
-    print(f"  - Iterations: {res.nit}")
+    if hasattr(res, 'nit'):
+        print(f"  - Iterations: {res.nit}")
+    else:
+        print(f"  - Iterations: N/A (Fixed by bounds)")
     print(f"\n[Optimization] Fitted Parameters:")
     print(f"  - F_max: {res.x[0]:.2f} (initial: {x0[0]:.2f})")
     print(f"  - l_opt: {res.x[1]:.4f} (initial: {x0[1]:.4f})")
@@ -513,8 +522,8 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
                                 verbose=0,
                                 out_param_csv="mujoco_muscle_data/fitted_params_length_only.csv",
                                 plot_path="mujoco_muscle_data/fitted_length_force_all.png"):
-    files = [f for f in os.listdir(data_dir) if f.endswith("_sim_active.csv")]
-    muscles = [f.replace("_sim_active.csv", "") for f in files]
+    files = [f for f in os.listdir(data_dir) if f.endswith("_sim_total.csv")]
+    muscles = [f.replace("_sim_total.csv", "") for f in files]
     fitted_rows = []
 
     # figure grid
@@ -546,10 +555,16 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
             cp_params = CompliantTendonParams(*res)
             model = create_model(cp_params)
             data = mujoco.MjData(model)
+            
+            # Use dense spacing for smooth curve, similar to individual plots
+            mtu_lengths = target["mtu_lengths"]
+            dense_L_phy = np.linspace(mtu_lengths.min(), mtu_lengths.max(), 100)
+            
             v_phy = 0.0
-            f_sim = compute_forces_at_velocity(model, data, v_phy, target["mtu_lengths"], activation=1.0)
-            ax.plot(target["mtu_lengths"], target["force_matrix"][:,0], "k.", label="data v=0")
-            ax.plot(target["mtu_lengths"], f_sim, "r-", label="fit v=0")
+            f_sim = compute_forces_at_velocity(model, data, v_phy, dense_L_phy, activation=1.0)
+            
+            ax.plot(mtu_lengths, target["force_matrix"][:,0], "k.", label="data v=0")
+            ax.plot(dense_L_phy, f_sim, "r-", label="fit v=0")
             ax.set_title(mname)
             ax.set_xlabel("MTU length (m)")
             ax.set_ylabel("Force (N)")
