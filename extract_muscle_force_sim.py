@@ -29,6 +29,38 @@ import time
 import csv
 import itertools
 
+def export_all_muscle_parameters(model, out_csv="osim_muscle_data/all_muscle_parameters.csv"):
+    """
+    Export basic muscle parameters for right-side muscles to a CSV.
+    Columns: muscle, max_isometric_force, optimal_fiber_length, tendon_slack_length, max_contraction_velocity
+    """
+    muscles = model.getMuscles()
+    rows = []
+    for i in range(muscles.getSize()):
+        m = muscles.get(i)
+        name = m.getName()
+        if not name.endswith("_r"):
+            continue
+        rows.append([
+            name,
+            m.getMaxIsometricForce(),
+            m.getOptimalFiberLength(),
+            m.getTendonSlackLength(),
+            m.getMaxContractionVelocity()
+        ])
+    os.makedirs(os.path.dirname(out_csv), exist_ok=True)
+    with open(out_csv, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "muscle",
+            "max_isometric_force",
+            "optimal_fiber_length",
+            "tendon_slack_length",
+            "max_contraction_velocity"
+        ])
+        writer.writerows(rows)
+    print(f"Saved {len(rows)} muscles to parameter CSV: {out_csv}")
+
 def get_influenced_coordinates(model, muscle):
     """
     Identifies which coordinates affect the length of the given muscle.
@@ -177,7 +209,7 @@ def create_virtual_experiment_model(ref_muscle):
     
     return model, sim_muscle_downcast
 
-def run_velocity_test(muscle_ref, output_dir="osim_muscle_data_sim", norm_velocities=None):
+def run_velocity_test(muscle_ref, output_dir="osim_muscle_data", norm_velocities=None):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         
@@ -295,7 +327,9 @@ if __name__ == "__main__":
     else:
         full_model = osim.Model(model_path)
         muscles = full_model.getMuscles()
-        out_dir = "osim_muscle_data_sim"
+        out_dir = "osim_muscle_data"
+        # Export parameter CSV for downstream fitting (right-side muscles only)
+        export_all_muscle_parameters(full_model, out_csv="osim_muscle_data/all_muscle_parameters.csv")
         try:
             import matplotlib.pyplot as plt
         except Exception as e:
