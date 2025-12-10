@@ -86,8 +86,6 @@ def update_xml(xml_path: Path, param_map, out_path: Path):
         general.set("gainprm", format_gain(values))
         general.set("gaintype", "compliant_mtu")
         general.set("biasprm", "0")
-        if "lengthrange" in general.attrib:
-            general.attrib.pop("lengthrange")
         updated += 1
 
     tree.write(out_path, encoding="utf-8", xml_declaration=False)
