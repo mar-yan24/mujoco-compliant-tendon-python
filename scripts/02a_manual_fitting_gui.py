@@ -2,7 +2,7 @@
 Interactive manual fitting tool for compliant muscle parameters.
 
 Usage:
-    python scripts/03_manual_fitting_gui.py --muscle glmax1_r \
+    python scripts/02a_manual_fitting_gui.py --muscle glmax1_r \
         --data_dir osim_muscle_data \
         --params_csv osim_muscle_data/all_muscle_parameters.csv
 
