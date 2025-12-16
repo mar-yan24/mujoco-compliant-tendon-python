@@ -52,6 +52,5 @@ videos/
 /MUJOCO_LOG.TXT
 
 # data
+# /mujoco_muscle_data/
 # /osim_muscle_data/
-/mujoco_muscle_data/
-/osim_muscle_data/
