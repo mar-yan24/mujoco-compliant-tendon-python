@@ -14,6 +14,13 @@ Notes:
 
 import argparse
 import sys
+
+# Check Python version (MuJoCo and modern libraries require Python 3.11+)
+if sys.version_info < (3, 11):
+    print(f"ERROR: This script requires Python 3.11 or higher, but you are using {sys.version_info.major}.{sys.version_info.minor}")
+    print("MuJoCo and modern scientific libraries require Python 3.11+.")
+    print("Please activate the correct virtual environment (venv_mujoco) and try again.")
+    sys.exit(1)
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt

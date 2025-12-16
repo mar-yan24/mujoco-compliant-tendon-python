@@ -35,6 +35,10 @@ This project converts muscle parameters from OpenSim to MuJoCo's compliant tendo
 Extract muscle force-length data from OpenSim models:
 
 ```bash
+# Activate Python 3.8 venv first
+.venv_opensim\Scripts\activate  # Windows
+# or: source .venv_opensim/bin/activate  # Linux/Mac
+
 python scripts/01_extract_opensim_data.py
 ```
 
@@ -53,6 +57,10 @@ This script:
 Fit MuJoCo compliant tendon parameters to match OpenSim data:
 
 ```bash
+# Activate Python 3.11 venv first
+.venv_mujoco\Scripts\activate  # Windows
+# or: source .venv_mujoco/bin/activate  # Linux/Mac
+
 python scripts/02_fit_mujoco_params.py
 ```
 
@@ -74,6 +82,10 @@ This script:
 Interactively adjust parameters using sliders:
 
 ```bash
+# Activate Python 3.11 venv first
+.venv_mujoco\Scripts\activate  # Windows
+# or: source .venv_mujoco/bin/activate  # Linux/Mac
+
 python scripts/02a_manual_fitting_gui.py --muscle glmax1_r \
     --data_dir osim_muscle_data \
     --params_csv osim_muscle_data/all_muscle_parameters.csv
@@ -89,7 +101,11 @@ Features:
 Apply the fitted parameters to your MuJoCo XML file:
 
 ```bash
-python scripts/04_apply_fitted_params.py [xml_path] [csv_path] [out_path]
+# Activate Python 3.11 venv first
+venv_mujoco\Scripts\activate  # Windows
+# or: source venv_mujoco/bin/activate  # Linux/Mac
+
+python scripts/03_apply_fitted_params.py [xml_path] [csv_path] [out_path]
 ```
 
 Default paths (when run from repo root):
@@ -105,14 +121,49 @@ The script:
 
 ## Requirements
 
+### Python Version Requirements
+
+This project requires **two different Python versions** due to library compatibility:
+
+- **Python 3.8** - Required for OpenSim 4.5 (used by `01_extract_opensim_data.py`)
+- **Python 3.11** - Required for MuJoCo and modern scientific libraries (used by `02_fit_mujoco_params.py`, `02a_manual_fitting_gui.py`, `03_apply_fitted_params.py`)
+
+### Setup Virtual Environments
+
+Create separate virtual environments for each Python version:
+
+```bash
+# For OpenSim scripts (Python 3.8)
+python3.8 -m venv venv_opensim
+venv_opensim\Scripts\activate  # Windows
+# or: source venv_opensim/bin/activate  # Linux/Mac
+
+# For MuJoCo scripts (Python 3.11)
+python3.11 -m venv venv_mujoco
+venv_mujoco\Scripts\activate  # Windows
+# or: source venv_mujoco/bin/activate  # Linux/Mac
+```
+
+### Install Dependencies
+
+**In `venv_opensim` (Python 3.8):**
+```bash
+pip install -r requirements_opensim.txt
+```
+
+**In `venv_mujoco` (Python 3.11):**
 ```bash
 pip install -r requirements.txt
 ```
 
-For OpenSim-specific functionality:
-```bash
-pip install -r requirements_opensim.txt
-```
+### Script-Specific Requirements
+
+Each script automatically checks the Python version and will exit with an error if the wrong version is used:
+
+- **`01_extract_opensim_data.py`** → Requires Python 3.8 (uses OpenSim)
+- **`02_fit_mujoco_params.py`** → Requires Python 3.11+ (uses MuJoCo)
+- **`02a_manual_fitting_gui.py`** → Requires Python 3.11+ (uses MuJoCo)
+- **`03_apply_fitted_params.py`** → Requires Python 3.11+ (MuJoCo workflow)
 
 ## Key Data Files
 

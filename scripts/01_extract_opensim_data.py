@@ -1,6 +1,13 @@
 import os
 import sys
 
+# Check Python version (OpenSim 4.5 requires Python 3.8)
+if sys.version_info < (3, 8) or sys.version_info >= (3, 9):
+    print(f"ERROR: This script requires Python 3.8, but you are using {sys.version_info.major}.{sys.version_info.minor}")
+    print("OpenSim 4.5 Python bindings are only compatible with Python 3.8.")
+    print("Please activate the correct virtual environment (venv_opensim) and try again.")
+    sys.exit(1)
+
 # Setup OpenSim Environment
 opensim_root = r'C:\OpenSim 4.5'
 opensim_bin_path = os.path.join(opensim_root, 'bin')

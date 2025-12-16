@@ -2,7 +2,7 @@
 Apply compliant-tendon fitted parameters to a MuJoCo muscle XML.
 
 Usage:
-    python scripts/04_apply_fitted_params.py \
+    python scripts/03_apply_fitted_params.py \
         [xml_path] \
         [csv_path] \
         [out_path]
@@ -21,6 +21,14 @@ Other attributes (e.g., lengthrange) are preserved.
 from pathlib import Path
 import csv
 import sys
+
+# Check Python version (MuJoCo workflow requires Python 3.11+)
+if sys.version_info < (3, 11):
+    print(f"ERROR: This script requires Python 3.11 or higher, but you are using {sys.version_info.major}.{sys.version_info.minor}")
+    print("This script is part of the MuJoCo workflow and requires Python 3.11+.")
+    print("Please activate the correct virtual environment (venv_mujoco) and try again.")
+    sys.exit(1)
+
 import xml.etree.ElementTree as ET
 
 
