@@ -10,8 +10,8 @@
     <body name="pelvis" pos="0 0 0" quat="0.707107 0.707107 0 0" childclass="myolegs">
         <site name="pelvis" class="myo_leg_marker"/>
         <inertial pos="-0.07 -0.03 0" mass="10.96" diaginertia="0.0622075 0.0532711 0.0299242" />
-        <geom name="r_pelvis_col" type="ellipsoid" size=".110 .13 0.11" class="coll" pos="-.08 -.03 0.07" euler="0.2 0 0" mass="2"/>
-        <geom name="l_pelvis_col" type="ellipsoid" size=".110 .13 0.11" class="coll" pos="-.08 -.03 -.07" euler="-.2 0 0" mass="2"/>
+        <geom name="r_pelvis_col" type="ellipsoid" size=".110 .13 0.11" class="coll" pos="-.08 -.03 0.07" euler="0.2 0 0" mass="2" contype="0" conaffinity="0"/>
+        <geom name="l_pelvis_col" type="ellipsoid" size=".110 .13 0.11" class="coll" pos="-.08 -.03 -.07" euler="-.2 0 0" mass="2" contype="0" conaffinity="0"/>
         <geom mesh="r_pelvis" name="r_pelvis" type="mesh"/>
         <geom mesh="l_pelvis" name="l_pelvis" type="mesh"/>
         <geom name="Gmax1_at_pelvis_r_wrap" pos="-0.077 -0.099 0.061" quat="0.931256 -0.288071 0.213142 -0.0659324" class="wrap" size="0.04 0.075"/>
@@ -103,15 +103,17 @@
         <site name="PS_at_brim_r_site_psoas_r_side" pos="-0.0209166 -0.0856869 0.0790765"/>
         <site name="PS_at_brim_l_site_psoas_l_side" pos="-0.0209166 -0.0856869 -0.0790765"/>
         <site name="IL_at_brim_r_site_iliacus_r_side" pos="-0.02526034 -0.0256276 0.0928915"/>
-        <site name="IL_at_brim_l_site_iliacus_l_side" pos="-0.00526034 -0.0756276 -0.0828915"/>
+        <!-- <site name="IL_at_brim_l_site_iliacus_l_side" pos="-0.00526034 -0.0756276 -0.0828915"/> -->
+         <!-- new position -->
+        <site name="IL_at_brim_l_site_iliacus_l_side" pos="-0.02526034 -0.0256276 -0.0928915"/>
         <body name="femur_r" pos="-0.056276 -0.07849 0.07726">
             <site name="hip_r" class="myo_leg_marker"/>
             <inertial pos="0 -0.195 -0.0005" quat="0.708013 -0.7062 0 0" mass="8.4" diaginertia="0.1694 0.1694 0.0245269" />
             <joint axis="0 0 1" name="hip_flexion_r" pos="0 0 0" range="-0.523599 2.0944"/>
             <joint axis="1 0 0" name="hip_adduction_r" pos="0 0 0" range="-0.872665 0.523599"/>
             <joint axis="0 1 0" name="hip_rotation_r" pos="0 0 0" range="-0.698132 0.698132"/>
-            <geom name="r_femur1_col" size=".080" class="coll" fromto="0 0 .02 0 -0.2 .015" mass="4"/>
-            <geom name="r_femur2_col" size=".067" class="coll" fromto="0 -0.2 .015 0 -0.39 .005" mass="2"/>
+            <geom name="r_femur1_col" size=".080" class="coll" fromto="0 0 .02 0 -0.2 .015" mass="4" contype="16" conaffinity="0"/>
+            <geom name="r_femur2_col" size=".067" class="coll" fromto="0 -0.2 .015 0 -0.39 .005" mass="2" contype="16" conaffinity="0"/>
             <geom mesh="r_femur" name="r_femur" type="mesh"/>
             <geom name="Gastroc_at_condyles_r_wrap" pos="0.005 -0.41 0" class="wrap" size="0.025 0.05"/>
             <geom name="KnExt_at_fem_r_wrap" pos="0.00358828 -0.402732 0.00209111" quat="0.999192 -0.0311532 0.025365 -0.00079084" class="wrap" size="0.025 0.05"/>
@@ -181,8 +183,8 @@
                 <joint axis="-3.98373e-10 -0.0707131 -0.997497" name="knee_angle_r" pos="0 0 0" range="0 2.0944"/>
                 <joint axis="0.992246 0.123982 -0.00878916" name="knee_angle_r_rotation2" pos="0 0 0" range="-0.00167821 0.0335354"/>
                 <joint axis="-0.124293 0.989762 -0.0701648" name="knee_angle_r_rotation3" pos="0 0 0" range="1.08939e-08 0.262788"/>
-                <geom name="r_tibia1_col" size=".056" class="coll" fromto="0 0 0 -0.01 -0.14 .0025" mass="3.8"/> <!-- 14cms -->
-                <geom name="r_tibia2_col" size=".048" class="coll" fromto="-0.01 -0.14 .0025 -0.01 -0.35 .005" mass="3.8"/>
+                <geom name="r_tibia1_col" size=".056" class="coll" fromto="0 0 0 -0.01 -0.14 .0025" mass="3.8" contype="16" conaffinity="0"/> <!-- 14cms -->
+                <geom name="r_tibia2_col" size=".048" class="coll" fromto="-0.01 -0.14 .0025 -0.01 -0.35 .005" mass="3.8" contype="16" conaffinity="0"/>
                 <geom mesh="r_tibia" name="r_tibia" type="mesh"/>
                 <geom mesh="r_fibula" name="r_fibula" type="mesh"/>
                 <geom name="GasLat_at_shank_r_wrap" pos="-0.0074 -0.074 -0.0033" quat="-0.0298211 0.737282 0.655511 -0.160722" class="wrap" size="0.055 0.05"/>
@@ -276,17 +278,17 @@
                         <site name="RCAL" pos="-0.025 0.02 -0.005"/>
                         <site name="RTOE" pos="0.205 0.0297 -0.03"/>
                         <site name="RMT5" pos="0.145 0.0249 0.059"/>
-                        <geom name="r_foot_col1" size=".02" class="foot" fromto="0.175 0 -.03 0.010 0 -.01"/>
+                        <geom name="r_foot_col1" size=".02" class="foot" fromto="0.175 0 -.03 0.010 0 -.01" contype="16" conaffinity="9"/>
                         <!-- <geom name="l_foot_col2" size=".02" class="coll" fromto="0.155 0 0.00 0.010 0 0.00"/> -->
-                        <geom name="r_foot_col3" size=".02" class="foot" fromto="0.140 0 0.03 0.010 0 0.01"/>
-                        <geom name="r_foot_col4" type="ellipsoid" size=".085 .035 0.04" class="foot" pos="0.08 .02 0" euler="0 0 -.2"/>
+                        <geom name="r_foot_col3" size=".02" class="foot" fromto="0.140 0 0.03 0.010 0 0.01" contype="16" conaffinity="9"/>
+                        <geom name="r_foot_col4" type="ellipsoid" size=".085 .035 0.04" class="foot" pos="0.08 .02 0" euler="0 0 -.2" contype="16" conaffinity="9"/>
                         <site name="r_foot_touch" type="box" pos="0.09 -.01 0.0" size=".1 .01 .055" euler="0 0 0" class="myo_leg_touch"/>
 
                         <body name="toes_r" pos="0.1788 -0.002 0.00108">
                             <site name="toe_r" class="myo_leg_marker"/>
                             <joint axis="0.580954 0 -0.813936" name="mtp_angle_r" pos="0 0 0" range="-0.523599 0.523599"/>
-                            <geom name="r_bofoot_col1" size=".0175 .045" class="foot" zaxis="0.880954 0 -0.813936" pos="0.04 0 .01"/>
-                            <geom name="r_bofoot_col2" size=".02 .040" class="foot" zaxis="0.580954 0 -0.813936" pos="0.01 0 0"/>
+                            <geom name="r_bofoot_col1" size=".0175 .045" class="foot" zaxis="0.880954 0 -0.813936" pos="0.04 0 .01" contype="16" conaffinity="9"/>
+                            <geom name="r_bofoot_col2" size=".02 .040" class="foot" zaxis="0.580954 0 -0.813936" pos="0.01 0 0" contype="16" conaffinity="9"/>
                             <geom mesh="r_bofoot" name="r_bofoot" type="mesh"/>
                             <site name="r_toes_touch" type="box" pos="0.0275 -.01 0" size=".04 .01 .0675" euler="0 -.7 0" class="myo_leg_touch"/>
                             <site name="edl_r-P5" pos="0.0003 0.0047 0.0153"/>
@@ -324,8 +326,8 @@
             <joint axis="0 0 1" name="hip_flexion_l" pos="0 0 0" range="-0.523599 2.0944"/>
             <joint axis="-1 0 0" name="hip_adduction_l" pos="0 0 0" range="-0.872665 0.523599"/>
             <joint axis="0 -1 0" name="hip_rotation_l" pos="0 0 0" range="-0.698132 0.698132"/>
-            <geom name="l_femur1_col" size=".080" class="coll" fromto="0 0 -.02 0 -0.2 -.015" mass="4"/>
-            <geom name="l_femur2_col" size=".067" class="coll" fromto="0 -0.2 -.015 0 -0.39 -.005" mass="2"/>
+            <geom name="l_femur1_col" size=".080" class="coll" fromto="0 0 -.02 0 -0.2 -.015" mass="4" contype="8" conaffinity="0"/>
+            <geom name="l_femur2_col" size=".067" class="coll" fromto="0 -0.2 -.015 0 -0.39 -.005" mass="2" contype="8" conaffinity="0"/>
             <geom mesh="l_femur" name="l_femur" type="mesh"/>
             <geom name="Gastroc_at_condyles_l_wrap" pos="0.005 -0.41 0" class="wrap" size="0.025 0.05"/>
             <geom name="KnExt_at_fem_l_wrap" pos="0.00358828 -0.402732 -0.00209111" quat="0.999192 0.0311532 -0.025365 -0.00079084" class="wrap" size="0.025 0.05"/>
@@ -395,8 +397,8 @@
                 <joint axis="3.98373e-10 0.0707131 -0.997497" name="knee_angle_l" pos="0 0 0" range="0 2.0944"/>
                 <joint axis="-0.992246 -0.123982 -0.00878916" name="knee_angle_l_rotation2" pos="0 0 0" range="-0.00167821 0.0335354"/>
                 <joint axis="-0.124293 0.989762 0.0701648" name="knee_angle_l_rotation3" pos="0 0 0" range="-0.262788 -1.08939e-08"/>
-                <geom name="l_tibia1_col" size=".056" class="coll" fromto="0 0 0 -0.01 -0.14 -.0025" mass="3.8"/> <!-- 14cms -->
-                <geom name="l_tibia2_col" size=".048" class="coll" fromto="-0.01 -0.14 -.0025 -0.01 -0.35 -.005" mass="3.8"/>
+                <geom name="l_tibia1_col" size=".056" class="coll" fromto="0 0 0 -0.01 -0.14 -.0025" mass="3.8" contype="8" conaffinity="0"/> <!-- 14cms -->
+                <geom name="l_tibia2_col" size=".048" class="coll" fromto="-0.01 -0.14 -.0025 -0.01 -0.35 -.005" mass="3.8" contype="8" conaffinity="0"/>
                 <geom mesh="l_tibia" name="l_tibia" type="mesh"/>
                 <geom mesh="l_fibula" name="l_fibula" type="mesh"/>
                 <geom name="GasLat_at_shank_l_wrap" pos="-0.0074 -0.074 0.0033" quat="-0.0298211 -0.737282 -0.655511 -0.160722" class="wrap" size="0.055 0.05"/>
@@ -490,17 +492,17 @@
                         <site name="LCAL" pos="-0.025 0.02 0.005"/>
                         <site name="LTOE" pos="0.205 0.0297 0.03"/>
                         <site name="LMT5" pos="0.145 0.0249 -0.059"/>
-                        <geom name="l_foot_col1" size=".02" class="foot" fromto="0.175 0 0.03 0.010 0 0.01"/>
+                        <geom name="l_foot_col1" size=".02" class="foot" fromto="0.175 0 0.03 0.010 0 0.01" contype="8" conaffinity="17"/>
                         <!-- <geom name="l_foot_col2" size=".02" class="coll" fromto="0.155 0 0.00 0.010 0 0.00"/> -->
-                        <geom name="l_foot_col3" size=".02" class="foot" fromto="0.140 0 -.03 0.010 0 -.01"/>
-                        <geom name="l_foot_col4" type="ellipsoid" size=".085 .035 0.04" class="foot" pos="0.08 .02 0" euler="0 0 -.2"/>
+                        <geom name="l_foot_col3" size=".02" class="foot" fromto="0.140 0 -.03 0.010 0 -.01" contype="8" conaffinity="17"/>
+                        <geom name="l_foot_col4" type="ellipsoid" size=".085 .035 0.04" class="foot" pos="0.08 .02 0" euler="0 0 -.2" contype="8" conaffinity="17"/>
                         <site name="l_foot_touch" type="box" pos="0.09 -.01 0.0" size=".1 .01 .055" euler="0 0 0" class="myo_leg_touch"/>
 
                         <body name="toes_l" pos="0.1788 -0.002 -0.00108">
                             <site name="toe_l" class="myo_leg_marker"/>
                             <joint axis="-0.580954 0 -0.813936" name="mtp_angle_l" pos="0 0 0" range="-0.523599 0.523599"/>
-                            <geom name="l_bofoot_col1" size=".0175 .045" class="foot" zaxis="-0.880954 0 -0.813936" pos="0.04 0 -.01"/>
-                            <geom name="l_bofoot_col2" size=".02 .040" class="foot" zaxis="-0.580954 0 -0.813936" pos="0.01 0 0"/>
+                            <geom name="l_bofoot_col1" size=".0175 .045" class="foot" zaxis="-0.880954 0 -0.813936" pos="0.04 0 -.01" contype="8" conaffinity="17"/>
+                            <geom name="l_bofoot_col2" size=".02 .040" class="foot" zaxis="-0.580954 0 -0.813936" pos="0.01 0 0" contype="8" conaffinity="17"/>
                             <geom mesh="l_bofoot" name="l_bofoot" type="mesh"/>
                             <site name="l_toes_touch" type="box" pos="0.0275 -.01 -.000" size=".04 .01 .0675" euler="0 .7 0" class="myo_leg_touch"/>
                             <site name="edl_l-P5" pos="0.0003 0.0047 -0.0153"/>

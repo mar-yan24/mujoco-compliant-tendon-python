@@ -11,7 +11,8 @@
     <!-- <option integrator="RK4" timestep="0.001"/> -->
     <option cone="elliptic" impratio="100"/>
 
-    <size nstack="60000" nconmax="600" njmax="200" nkey="1" nuser_jnt="1"/>
+    <!-- <size nstack="60000" nconmax="600" njmax="200" nkey="1" nuser_jnt="1"/> -->
+    <size memory="100M"/>
     <!-- <visual>
         <headlight ambient=".5 .5 .5" diffuse="0.50 0.50 0.50" specular="0.50 0.50 0.50"/>
     </visual> -->
@@ -24,6 +25,12 @@
             <tendon rgba="0.95 0.3 0.3 1" width="0.001"/>
             <default class="muscle">
                 <general biasprm="0.75 1.05 -1 400 0.5 1.6 1.5 1.3 1.2 0" biastype="muscle" ctrllimited="true" ctrlrange="0 1" dynprm="0.01 0.04 0 0 0 0 0 0 0 0" dyntype="muscle" gainprm="0.75 1.05 -1 400 0.5 1.6 1.5 1.3 1.2 0" gaintype="muscle"/>
+            </default>
+            <default class="compliant_muscle">
+                <general biasprm="0" biastype="none" ctrllimited="true" ctrlrange="0 1" 
+                         dynprm="0.01 0.04" dyntype="muscle" 
+                         gainprm="1500 0.11 0.13 12.0 0.56 -2.995732274 1.5 5.0 0.04" 
+                         gaintype="compliant_mtu"/>
             </default>
             <default class="wrap">
                 <geom rgba=".5 .5 .9 0.5" group="3" contype="0" conaffinity="0"  type="cylinder"/>
