@@ -106,7 +106,7 @@ def main():
     xml_path = (
         Path(sys.argv[1])
         if len(sys.argv) > 1
-        else root_dir / "myosim_convert/myo_sim/leg/assets/myolegs_muscle.xml"
+        else root_dir / "myosim_convert/myo_sim/leg/assets/myolegs_muscle_compliant.xml"
     )
     csv_path = (
         Path(sys.argv[2])

@@ -86,9 +86,7 @@ Interactively adjust parameters using sliders:
 .venv_mujoco\Scripts\activate  # Windows
 # or: source .venv_mujoco/bin/activate  # Linux/Mac
 
-python scripts/02a_manual_fitting_gui.py --muscle glmax1_r \
-    --data_dir osim_muscle_data \
-    --params_csv osim_muscle_data/all_muscle_parameters.csv
+python scripts/02a_manual_fitting_gui.py --muscle glmax1_r --data_dir osim_muscle_data --params_csv osim_muscle_data/all_muscle_parameters.csv
 ```
 
 Features:
@@ -164,6 +162,15 @@ Each script automatically checks the Python version and will exit with an error 
 - **`02_fit_mujoco_params.py`** → Requires Python 3.11+ (uses MuJoCo)
 - **`02a_manual_fitting_gui.py`** → Requires Python 3.11+ (uses MuJoCo)
 - **`03_apply_fitted_params.py`** → Requires Python 3.11+ (MuJoCo workflow)
+
+# run all
+
+```
+.venv_opensim\Scripts\python scripts/01_extract_opensim_data.py
+.venv_mujoco\Scripts\python scripts/02_fit_mujoco_params.py
+.venv_mujoco\Scripts\python scripts/03_apply_fitted_params.py
+.venv_mujoco\Scripts\python scripts/04_simulate.py
+```
 
 ## Key Data Files
 

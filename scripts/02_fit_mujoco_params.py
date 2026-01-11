@@ -172,22 +172,35 @@ def load_length_force_sim(muscle_name, params_csv, data_dir):
     l_slack = float(p['tendon_slack_length'])
     v_max = float(p['max_contraction_velocity'])
 
-    csv_path = os.path.join(data_dir, f"{muscle_name}_sim_total.csv")
-    if not os.path.exists(csv_path):
-        raise FileNotFoundError(f"Data file {csv_path} not found.")
+    csv_path_total = os.path.join(data_dir, f"{muscle_name}_sim_total.csv")
+    if not os.path.exists(csv_path_total):
+        raise FileNotFoundError(f"Data file {csv_path_total} not found.")
 
-    with open(csv_path, 'r') as f:
-        reader = csv.reader(f)
-        rows = list(reader)
+    csv_path_passive = os.path.join(data_dir, f"{muscle_name}_sim_passive.csv")
+    if not os.path.exists(csv_path_passive):
+        # Fallback if passive file doesn't exist (though it should from 01 script)
+        print(f"Warning: Passive force file {csv_path_passive} not found. Using total force for range finding logic might be inaccurate.")
+        csv_path_passive = None
 
-    norm_velocities = np.array([float(v) for v in rows[0][1:]])  # expect single v=0
-    mtu_lengths = []
-    data_matrix = []
-    for r in rows[1:]:
-        mtu_lengths.append(float(r[0]))
-        data_matrix.append([float(x) for x in r[1:]])
-    mtu_lengths = np.array(mtu_lengths)
-    data_matrix = np.array(data_matrix)
+    def read_sim_data(path):
+        with open(path, 'r') as f:
+            reader = csv.reader(f)
+            rows = list(reader)
+        # rows[0] is header (velocities)
+        # rows[1:] is data
+        _lengths = []
+        _matrix = []
+        for r in rows[1:]:
+            _lengths.append(float(r[0]))
+            _matrix.append([float(x) for x in r[1:]])
+        return np.array(_lengths), np.array(_matrix), np.array([float(v) for v in rows[0][1:]])
+
+    mtu_lengths, total_force_matrix, norm_velocities = read_sim_data(csv_path_total)
+    
+    if csv_path_passive:
+        _, passive_force_matrix, _ = read_sim_data(csv_path_passive)
+    else:
+        passive_force_matrix = None
 
     return {
         "f_max": f_max,
@@ -196,7 +209,8 @@ def load_length_force_sim(muscle_name, params_csv, data_dir):
         "v_max": v_max,
         "mtu_lengths": mtu_lengths,
         "norm_velocities": norm_velocities,
-        "force_matrix": data_matrix
+        "force_matrix": total_force_matrix,
+        "passive_force_matrix": passive_force_matrix
     }
 
 
@@ -208,6 +222,66 @@ def load_length_force_sim(muscle_name, params_csv, data_dir):
 _obj_iter_count = 0
 _obj_start_time = None
 _obj_verbose = 1
+
+def get_fitting_range(target_data):
+    """
+    Calculate fitting range based on Tendon linear transition point using Passive Force.
+    
+    Rationale:
+    According to the OpenSim API Documentation for TendonForceLengthCurve:
+    https://simtk.org/api_docs/opensim/api_docs/classOpenSim_1_1TendonForceLengthCurve.html
+    
+    The default parameters for the Millard 2012 Equilibrium Muscle model are fitted to match 
+    average in-vivo tendon curves reported by Maganaris et al. and Magnusson et al.
+    Key properties include:
+      - strainAtOneNormForce: 0.049 (4.9% strain at F_max)
+      - normForceAtToeEnd: 2.0/3.0 (Linear transition occurs at ~67% of F_max)
+      - stiffnessAtOneNormForce: 1.375 / strainAtOneNormForce
+    
+    We limit the fitting range up to this linear transition point (approx 2/3 * F_max) 
+    to accurately capture the "toe region" characteristics where the tendon is compliant.
+    We specifically use the extracted PASSIVE force data (a=0) to identify this threshold,
+    avoiding contamination from active muscle force peaks at shorter lengths.
+    """
+    l_slack = target_data['l_slack']
+    f_max = target_data['f_max']
+    
+    # Min length: starts at slack length
+    min_len = l_slack
+    
+    # Max length: based on PASSIVE force reaching 2/3 F_max.
+    # We use the passive force matrix if available.
+    if target_data.get('passive_force_matrix') is not None:
+        forces = target_data['passive_force_matrix'][:, 0]
+    else:
+        # Fallback to total force if passive not loaded (should not happen with updated code)
+        forces = target_data['force_matrix'][:, 0]
+
+    mtu_lengths = target_data['mtu_lengths']
+    limit_force = (2.0 / 3.0) * f_max
+    
+    # Since we are using PASSIVE force (specifically extracted where a=0),
+    # we don't need heuristics to skip active peaks. The passive curve is monotonic.
+    # Just find the first point where force > limit.
+    
+    over_indices = np.where(forces > limit_force)[0]
+    
+    if len(over_indices) > 0:
+        idx = over_indices[0]
+        max_len = mtu_lengths[idx]
+    else:
+        # If force never reaches the limit (range too short), use full range
+        max_len = mtu_lengths[-1]
+            
+    return min_len, max_len
+
+def plot_fitting_range_on_ax(ax, min_len, max_len, label='Fit Range'):
+    """
+    Helper to plot fitting range on a matplotlib axis.
+    """
+    ax.axvspan(min_len, max_len, color='green', alpha=0.1, label=label)
+    ax.axvline(min_len, color='g', linestyle='--', alpha=0.5)
+    ax.axvline(max_len, color='g', linestyle='--', alpha=0.5)
 
 def objective_function(x, target_data, verbose=1):
     global _obj_iter_count, _obj_start_time, _obj_verbose
@@ -234,9 +308,28 @@ def objective_function(x, target_data, verbose=1):
         raise ValueError(f"Invalid physical parameters: F_max={F_max}, l_opt={l_opt}, l_slack={l_slack}, v_max={v_max}")
 
     ref_f_max = target_data['f_max']
+    ref_l_opt = target_data['l_opt']
+    ref_l_slack = target_data['l_slack']
+
     mtu_lengths = target_data['mtu_lengths']  # Actual MTU lengths (m)
     norm_velocities = target_data['norm_velocities']
     force_matrix = target_data['force_matrix']
+
+    # Define fitting range
+    min_len, max_len = get_fitting_range(target_data)
+    
+    # Filter data indices
+    range_mask = (mtu_lengths >= min_len) & (mtu_lengths <= max_len)
+    if not np.any(range_mask):
+         # If no data in range (unlikely), warn and use all? 
+         # Or just expand slightly? Let's assume there is data or use all if empty.
+         if verbose >= 1:
+             print(f"[Warning] No data points in range [{min_len:.4f}, {max_len:.4f}]. Using all data.")
+         range_mask = np.ones_like(mtu_lengths, dtype=bool)
+
+    # Apply mask to data
+    target_l_phys = mtu_lengths[range_mask]
+    target_force_matrix_subset = force_matrix[range_mask, :]
     
     _obj_iter_count += 1
     if _obj_start_time is None:
@@ -285,12 +378,9 @@ def objective_function(x, target_data, verbose=1):
     
     sim_start_time = time.time()
     
-    # Use MTU lengths directly (already in physical units)
-    target_l_phys = mtu_lengths  # Use all lengths
-    
     # Target forces for v=0 profile across all lengths
     # force_matrix shape is (n_lengths, n_velocities)
-    f_target_profile = force_matrix[:, v0_idx]
+    f_target_profile = target_force_matrix_subset[:, v0_idx]
     
     # Compute simulated forces for v=0 across all target lengths
     v_phy = 0.0 # Fixed v=0
@@ -361,6 +451,13 @@ def plot_results(best_params, target_data, muscle_name, initial_params=None):
     f_data = target_data['force_matrix'][:, 0]
 
     fig, ax = plt.subplots(figsize=(6, 4))
+    
+    # Plot fitting range
+    min_len, max_len = get_fitting_range(target_data)
+    
+    # Highlight the fitting range
+    plot_fitting_range_on_ax(ax, min_len, max_len, label='Fit Range')
+
     ax.plot(mtu_lengths, f_data, "k.", label="data v=0")
     ax.plot(dense_L_phy, f_sim, "r-", label="fit v=0")
     ax.set_title(f"{muscle_name} length-force (v=0)")
@@ -455,7 +552,7 @@ def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle
     
     x0 = [
         base_F, 
-        base_L_opt * 1.0, 
+        base_L_opt * 0.95, 
         base_L_slack* 1.0, 
         base_V_max,  # fixed
         0.56, -2.995732274, 1.5, 5.0, 0.04
@@ -480,11 +577,11 @@ def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle
         # (5.0, 5.0 + 1e-7),                            # K = 5.0
         # (0.04, 0.04 + 1e-7)                           # E_REF = 0.04
 
-        (0.01, 3),                            # W = 0.56
+        (0.01, 10),                            # W = 0.56
         (-100, -0.01),                          # C = -2.995732274
         (1.5, 1.5 + 1e-7),                            # N = 1.5
         (5.0, 5.0 + 1e-7),                            # K = 5.0
-        (0.03, 0.5)                           # E_REF = 0.04
+        (0.01, 1.0)                           # E_REF = 0.04
     ]
     
     # print(f"\n[Optimization] Starting optimization...")
@@ -510,13 +607,13 @@ def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle
         obj_wrapper,
         x0,
         bounds=ls_bounds,
-        max_nfev=1000,  # Increased max evaluations
+        max_nfev=10000,  # Increased max evaluations
         verbose=2 if verbose >= 1 else 0, # Increased verbosity
         jac='3-point',  # More accurate Jacobian approximation (slower but more stable)
         # loss='soft_l1', # Robust loss function to handle outliers/noise better than linear (least squares)
-        ftol=1e-7,     # Tighter tolerance for function value change
-        xtol=1e-7,     # Tighter tolerance for independent variable change
-        gtol=1e-7      # Tighter tolerance for gradient norm
+        ftol=1e-6,     # Tighter tolerance for function value change
+        xtol=1e-6,     # Tighter tolerance for independent variable change
+        gtol=1e-6      # Tighter tolerance for gradient norm
     )
     
     opt_time = time.time() - opt_start_time
@@ -566,6 +663,7 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
                                 plot_path="mujoco_muscle_data/fitted_length_force_all.png"):
     files = [f for f in os.listdir(data_dir) if f.endswith("_sim_total.csv")]
     muscles = [f.replace("_sim_total.csv", "") for f in files]
+    muscles.sort() # Ensure consistent alphabetical order
     fitted_rows = []
 
     # figure grid
@@ -576,7 +674,7 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
         print(f"Plot import failed: {e}")
 
     n = len(muscles)
-    ncols = 4
+    ncols = 8
     nrows = int(np.ceil(n / ncols)) if n > 0 else 0
     if plt is not None and n > 0:
         fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows), squeeze=False)
@@ -605,8 +703,13 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
             v_phy = 0.0
             f_sim = compute_forces_at_velocity(model, data, v_phy, dense_L_phy, activation=1.0)
             
-            ax.plot(mtu_lengths, target["force_matrix"][:,0], "k.", label="data v=0")
-            ax.plot(dense_L_phy, f_sim, "r-", label="fit v=0")
+            # Plot fitting range
+            min_len, max_len = get_fitting_range(target)
+
+            plot_fitting_range_on_ax(ax, min_len, max_len, label='Range')
+
+            ax.plot(mtu_lengths, target["force_matrix"][:,0], "k.", label="data", markersize=3)
+            ax.plot(dense_L_phy, f_sim, "r-", label="fit", linewidth=1)
             ax.set_title(mname)
             ax.set_xlabel("MTU length (m)")
             ax.set_ylabel("Force (N)")
@@ -620,7 +723,7 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
             base_V_max = target['v_max']
             x0 = [
                 base_F, 
-                base_L_opt * 0.9, 
+                base_L_opt, 
                 base_L_slack, 
                 base_V_max,
                 0.56, -2.995732274, 1.5, 5.0, 0.04
@@ -671,3 +774,31 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
 # Run fitting for all muscles with v=0 data
 if __name__ == "__main__":
     fit_all_muscles_length_only(verbose=0)
+
+    # Post-processing: Apply params to compliant XML
+    import subprocess
+    import shutil
+    
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    script_03 = os.path.join(repo_root, "scripts", "03_apply_fitted_params.py")
+    
+    src_xml = os.path.join(repo_root, "myosim_convert", "myo_sim", "leg", "assets", "myolegs_muscle_rigid.xml")
+    target_xml = os.path.join(repo_root, "myosim_convert", "myo_sim", "leg", "assets", "myolegs_muscle_compliant.xml")
+    csv_path = os.path.join(repo_root, "mujoco_muscle_data", "fitted_params_length_only.csv")
+    
+    # 1. Ensure compliant XML exists (copy from base to ensure fresh structure)
+    print(f"\n[Apply] Creating/Overwriting {os.path.basename(target_xml)} from base...")
+    shutil.copy2(src_xml, target_xml)
+    
+    # 2. Run 03 script to update it
+    print(f"[Apply] Running 03_apply_fitted_params.py to inject parameters...")
+    # Args: [xml_path] [csv_path] [out_path]
+    cmd = [sys.executable, script_03, target_xml, csv_path, target_xml]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    
+    if result.returncode == 0:
+        print(result.stdout)
+        print(f"[Apply] Successfully updated {target_xml}")
+    else:
+        print("Error running script 03:")
+        print(result.stderr)

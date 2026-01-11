@@ -387,8 +387,11 @@ if __name__ == "__main__":
 
         # grid plot: multiple subplots (rows/cols) each muscle active v=0
         if summary_curves:
+            # Sort by muscle name to ensure consistent order
+            summary_curves.sort(key=lambda x: x[0])
+            
             n = len(summary_curves)
-            ncols = 4
+            ncols = 8
             nrows = int(np.ceil(n / ncols))
             fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows), squeeze=False)
             cmap = plt.get_cmap("tab20")
