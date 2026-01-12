@@ -492,39 +492,64 @@ def plot_results(best_params, target_data, muscle_name, initial_params=None):
     min_len, max_len = get_fitting_range(target_data)
     
     # Highlight the fitting range
-    plot_fitting_range_on_ax(ax, min_len, max_len, label='Fit Range')
+    # Highlight the fitting range
+    plot_fitting_range_on_ax(ax, min_len, max_len, label='Fitting Range')
+    
+    # Reference Lines for Total Length limits
+    # 1. Target (OpenSim)
+    if 'l_opt' in target_data and 'l_slack' in target_data:
+        val_ref = target_data['l_opt'] + target_data['l_slack']
+        ax.axvline(val_ref, color='gray', linestyle='--', label='Ref lo+ls', alpha=0.8)
+
+    # 2. Fitted
+    val_fit = l_opt + l_slack
+    ax.axvline(val_fit, color='r', linestyle=':', label='Fit lo+ls', alpha=0.8)
 
     if f_data_passive is not None:
-        ax.plot(mtu_lengths, f_data_passive, "b.", label="data pas", alpha=0.5)
-        ax.plot(dense_L_phy, f_sim_passive, "b--", label="fit pas")
+        ax.plot(mtu_lengths, f_data_passive, "b.", label="Passive (Data)", alpha=0.5)
+        ax.plot(dense_L_phy, f_sim_passive, "b--", label="Passive (Fit)")
 
-    ax.plot(mtu_lengths, f_data_active, "k.", label="data act")
-    ax.plot(dense_L_phy, f_sim_active, "r-", label="fit act")
-    ax.set_title(f"{muscle_name} length-force (v=0)")
+    ax.plot(mtu_lengths, f_data_active, "k.", label="Active (Data)")
+    ax.plot(dense_L_phy, f_sim_active, "r-", label="Active (Fit)")
+    ax.set_title(f"{muscle_name}")
     ax.set_xlabel("MTU length (m)")
     ax.set_ylabel("Force (N)")
     ax.grid(True, alpha=0.3)
-    ax.legend(fontsize="x-small")
+    # Legend outside
+    ax.legend(fontsize="small", loc='center left', bbox_to_anchor=(1, 0.5))
+    ax.grid(True, alpha=0.3)
     
-    # Add fitted parameters as text at the bottom
-    param_text = f"Fitted: F_max={F_max:.2f}, l_opt={l_opt:.2f}, l_slack={l_slack:.2f}, v_max={v_max:.2f}\n"
-    param_text += f"W={W:.2f}, C={C:.2f}, N={N:.2f}, K={K:.2f}, E_REF={E_REF:.2f}"
+    # 1. Save Clean Version (No text, tight margins)
+    os.makedirs("mujoco_muscle_data", exist_ok=True)
+    out_path_clean = os.path.join("mujoco_muscle_data", f"{muscle_name}_fit_v0_clean.png")
+    
+    # Use tight_layout with small padding
+    fig.tight_layout(pad=0.5)
+    fig.savefig(out_path_clean, dpi=200)
+    print(f"[Plotting] Saved clean plot: {out_path_clean}")
+
+    # 2. Add fitted parameters as text at the bottom and Save Info Version
+    param_text = f"Fitted: F_max={F_max:.2f}, l_opt={l_opt:.3f}, l_slack={l_slack:.3f}, v_max={v_max:.2f}\n"
+    param_text += f"W={W:.2f}, C={C:.2f}, N={N:.2f}, K={K:.2f}, E_REF={E_REF:.3f}"
     
     if initial_params is not None:
         F0, l0, ls0, v0, W0, C0, N0, K0, E0 = initial_params
-        param_text += f"\nInitial: F_max={F0:.2f}, l_opt={l0:.2f}, l_slack={ls0:.2f}, v_max={v0:.2f}\n"
-        param_text += f"W={W0:.2f}, C={C0:.2f}, N={N0:.2f}, K={K0:.2f}, E_REF={E0:.2f}"
+        param_text += f"\nInitial: F_max={F0:.2f}, l_opt={l0:.3f}, l_slack={ls0:.3f}, v_max={v0:.2f}\n"
+        param_text += f"W={W0:.2f}, C={C0:.2f}, N={N0:.2f}, K={K0:.2f}, E_REF={E0:.3f}"
     
-    ax.text(0.5, -0.25, param_text, transform=ax.transAxes, 
+    # Add text
+    text_box = ax.text(0.5, -0.15, param_text, transform=ax.transAxes, 
             fontsize=7, ha='center', va='top', 
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
-    os.makedirs("mujoco_muscle_data", exist_ok=True)
-    out_path = os.path.join("mujoco_muscle_data", f"{muscle_name}_fit_v0.png")
-    fig.tight_layout(rect=[0, 0.15, 1, 0.95])  # Leave more space at bottom
-    fig.savefig(out_path, dpi=200)
+    # Adjust margins to fit text at bottom
+    # left/right/top tighter, bottom larger for text
+    plt.subplots_adjust(left=0.10, right=0.95, top=0.92, bottom=0.22)
+    
+    out_path_info = os.path.join("mujoco_muscle_data", f"{muscle_name}_fit_v0_info.png")
+    fig.savefig(out_path_info, dpi=200)
     plt.close(fig)
-    print(f"[Plotting] Saved: {out_path}")
+    print(f"[Plotting] Saved info plot: {out_path_info}")
 
 def plot_aggregate_parameter_changes(all_results):
     """
@@ -770,6 +795,9 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
     
     # Collection for aggregate plots: (name, init_params, fit_params)
     all_fitting_results = []
+    
+    # Store param text to add later for the detailed plot
+    subplot_texts = {} # (row, col) -> text
 
     # figure grid
     try:
@@ -830,21 +858,33 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
             # Plot fitting range
             min_len, max_len = get_fitting_range(target)
 
-            plot_fitting_range_on_ax(ax, min_len, max_len, label='Range')
+            plot_fitting_range_on_ax(ax, min_len, max_len, label='Fitting Range')
+            
+            # Reference Lines for Total Length limits
+            # 1. Target (OpenSim)
+            val_ref = target['l_opt'] + target['l_slack']
+            ax.axvline(val_ref, color='gray', linestyle='--', label='Ref lo+ls', alpha=0.8)
+
+            # 2. Fitted
+            l_opt_fit = res[1]
+            l_slack_fit = res[2]
+            val_fit = l_opt_fit + l_slack_fit
+            ax.axvline(val_fit, color='r', linestyle=':', label='Fit lo+ls', alpha=0.8)
             
             # Passive
             if target.get('passive_force_matrix') is not None:
-                ax.plot(mtu_lengths, target["passive_force_matrix"][:,0], "b.", label="pass", markersize=2, alpha=0.5)
-                ax.plot(dense_L_phy, f_sim_passive, "b--", linewidth=1)
+                ax.plot(mtu_lengths, target["passive_force_matrix"][:,0], "b.", label="Passive (Data)", markersize=2, alpha=0.5)
+                ax.plot(dense_L_phy, f_sim_passive, "b--", label="Passive (Fit)", linewidth=1)
 
             # Active
-            ax.plot(mtu_lengths, target["force_matrix"][:,0], "k.", label="act", markersize=3)
-            ax.plot(dense_L_phy, f_sim_active, "r-", label="fit", linewidth=1)
-            ax.set_title(mname)
-            ax.set_xlabel("MTU length (m)")
-            ax.set_ylabel("Force (N)")
+            ax.plot(mtu_lengths, target["force_matrix"][:,0], "k.", label="Active (Data)", markersize=3)
+            ax.plot(dense_L_phy, f_sim_active, "r-", label="Active (Fit)", linewidth=1)
+            ax.set_title(mname, fontsize=8)
+            ax.set_xlabel("Length (m)", fontsize=7)
+            ax.set_ylabel("Force (N)", fontsize=7)
             ax.grid(True, alpha=0.3)
-            ax.legend(fontsize="x-small")
+            # Remove individual legends to save space
+            # ax.legend(fontsize="x-small")
             
             # Calculate initial guess (same as in fit_muscle)
             base_F = target['f_max']
@@ -866,9 +906,9 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
             param_text += f"W={W:.2f}, C={C:.2f}, N={N:.2f}, K={K:.2f}, E={E_REF:.2f}\n"
             param_text += f"Init: F={F0:.2f}, l_o={l0:.2f}, l_s={ls0:.2f}\n"
             param_text += f"W={W0:.2f}, C={C0:.2f}, N={N0:.2f}, K={K0:.2f}, E={E0:.2f}"
-            ax.text(0.5, -0.25, param_text, transform=ax.transAxes, 
-                    fontsize=5, ha='center', va='top',
-                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+            
+            # Store text for later
+            subplot_texts[(row, col)] = param_text
 
     # write params CSV
     if fitted_rows:
@@ -893,13 +933,51 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
             row = k // ncols
             col = k % ncols
             fig.delaxes(axes[row][col])
-        # Leave more space at bottom for parameter text and increase spacing between subplots
-        fig.subplots_adjust(bottom=0.20, hspace=0.6, wspace=0.4)
+            
         plot_dir = os.path.dirname(plot_path)
         if plot_dir:
             os.makedirs(plot_dir, exist_ok=True)
-        fig.savefig(plot_path, dpi=200)
-        print(f"Saved comparison plot: {plot_path}")
+            
+        # Create a single global legend
+            # Gather handles/labels from the first verified subplot
+        handles, labels = [], []
+        # Find first non-empty ax
+        for row in axes:
+             for ax in row:
+                  if ax.has_data():
+                       h, l = ax.get_legend_handles_labels()
+                       # Filter duplicates
+                       by_label = dict(zip(l, h))
+                       handles = list(by_label.values())
+                       labels = list(by_label.keys())
+                       break
+             if handles: break
+        
+        if handles:
+             fig.legend(handles, labels, loc='upper center', ncol=3, fontsize='medium', bbox_to_anchor=(0.5, 0.98))
+
+        # 1. Save Clean Version
+        # Adjust top to make room for legend
+        fig.tight_layout(rect=[0, 0, 1, 0.95], pad=1.0)
+        clean_path = plot_path.replace(".png", "_clean.png")
+        fig.savefig(clean_path, dpi=200)
+        print(f"Saved clean comparison plot: {clean_path}")
+
+        # 2. Add Text and Save Info Version
+        for (r, c), item_text in subplot_texts.items():
+            ax = axes[r][c]
+            ax.text(0.5, -0.25, item_text, transform=ax.transAxes, 
+                    fontsize=5, ha='center', va='top',
+                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+        # Increase spacing for text
+        # Adjust top again for legend
+        fig.subplots_adjust(bottom=0.20, hspace=0.8, wspace=0.4, top=0.92)
+        
+        info_path = plot_path.replace(".png", "_info.png")
+        fig.savefig(info_path, dpi=200)
+        print(f"Saved info comparison plot: {info_path}")
+        
         # Show only the final combined figure (per request)
         plt.show(block=False)
         plt.pause(0.1)
