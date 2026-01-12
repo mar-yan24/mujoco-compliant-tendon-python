@@ -44,11 +44,17 @@ def main():
     # 3. Define Simulation & Capture Function
     fps = 600
     render_dt = 1.0 / fps
-    n_frames = 10
+    n_frames = 60
     
     # Ensure output dir
-    output_dir = os.path.join(repo_root, "outputs")
-    os.makedirs(output_dir, exist_ok=True)
+    # Ensure output dir
+    base_output_dir = os.path.join(repo_root, "simulation_outputs", "run_latest")
+    videos_dir = os.path.join(base_output_dir, "videos")
+    plots_dir = os.path.join(base_output_dir, "plots")
+    
+    os.makedirs(base_output_dir, exist_ok=True)
+    os.makedirs(videos_dir, exist_ok=True)
+    os.makedirs(plots_dir, exist_ok=True)
 
     # 2b. Load Muscle Parameters (L_opt, L_slack) for Reference Lines & Limits
     params_csv = os.path.join(repo_root, "osim_muscle_data", "all_muscle_parameters.csv")
@@ -125,7 +131,7 @@ def main():
             frame_count += 1
             
         # Save Video
-        video_path = os.path.join(output_dir, f"simulation_video_{segment_name}.mp4")
+        video_path = os.path.join(videos_dir, f"simulation_video_{segment_name}.mp4")
         imageio.mimsave(video_path, frames, fps=fps)
         print(f"[{segment_name}] Video saved: {video_path}")
         
@@ -166,7 +172,7 @@ def main():
         for i in range(n_muscles, len(axes)):
             axes[i].axis('off')
             
-        plot_path = os.path.join(output_dir, f"muscle_forces_{segment_name}.png")
+        plot_path = os.path.join(plots_dir, f"muscle_forces_{segment_name}.png")
         plt.savefig(plot_path)
         plt.close(fig)
         print(f"[{segment_name}] Plot saved: {plot_path}")
@@ -202,7 +208,7 @@ def main():
         for i in range(n_muscles, len(axes)):
             axes[i].axis('off')
             
-        plot_path = os.path.join(output_dir, f"muscle_lengths_{segment_name}.png")
+        plot_path = os.path.join(plots_dir, f"muscle_lengths_{segment_name}.png")
         plt.savefig(plot_path)
         plt.close(fig)
         print(f"[{segment_name}] Length plot saved: {plot_path}")

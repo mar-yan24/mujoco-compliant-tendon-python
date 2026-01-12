@@ -380,45 +380,75 @@ def objective_function(x, target_data, verbose=1):
     
     # Target forces for v=0 profile across all lengths
     # force_matrix shape is (n_lengths, n_velocities)
-    f_target_profile = target_force_matrix_subset[:, v0_idx]
+    f_target_active = target_force_matrix_subset[:, v0_idx]
     
-    # Compute simulated forces for v=0 across all target lengths
+    # Compute simulated forces for v=0 across all target lengths (Active)
     v_phy = 0.0 # Fixed v=0
-    f_sim_profile = compute_forces_at_velocity(model, data, v_phy, target_l_phys, activation=1.0)
+    f_sim_active = compute_forces_at_velocity(model, data, v_phy, target_l_phys, activation=1.0)
     
+    # Handle Passive
+    if target_data.get('passive_force_matrix') is not None:
+        target_passive_matrix_subset = target_data['passive_force_matrix'][range_mask, :]
+        f_target_passive = target_passive_matrix_subset[:, v0_idx]
+        f_sim_passive = compute_forces_at_velocity(model, data, v_phy, target_l_phys, activation=0.0)
+    else:
+        # Should usually exist, but fallback
+        f_target_passive = np.zeros_like(f_target_active)
+        f_sim_passive = np.zeros_like(f_sim_active)
+
     # Calculate residuals and filter out pathological simulation points
-    residuals_raw = f_sim_profile - f_target_profile
+    residuals_active = f_sim_active - f_target_active
+    residuals_passive = f_sim_passive - f_target_passive
 
     # Base validity: finite and not excessively large (>|5 * F_max|)
-    valid_mask = np.isfinite(f_sim_profile) & (np.abs(f_sim_profile) <= 5.0 * ref_f_max)
+    valid_mask = np.isfinite(f_sim_active) & (np.abs(f_sim_active) <= 5.0 * ref_f_max)
+    valid_mask &= np.isfinite(f_sim_passive) & (np.abs(f_sim_passive) <= 5.0 * ref_f_max)
 
     # Discontinuity filter: mark points following a large jump as invalid
-    if f_sim_profile.size > 1:
+    if f_sim_active.size > 1:
         jump_thresh = 0.1 * ref_f_max
-        jumps = np.abs(np.diff(f_sim_profile)) > jump_thresh
+        jumps = np.abs(np.diff(f_sim_active)) > jump_thresh
+        jumps |= np.abs(np.diff(f_sim_passive)) > jump_thresh
         bad_indices = np.where(jumps)[0] + 1  # mark the point after the jump
         valid_mask[bad_indices] = False
 
     # Ensure fixed-length residual vector for least_squares:
     # keep original length, but penalize invalid points heavily.
-    if not np.any(valid_mask):
-        raise ValueError("All simulated points were filtered out (non-finite, over-limit, or discontinuous).")
-
     penalty = 5.0 * ref_f_max
-    residuals_penalized = residuals_raw.copy()
-    residuals_penalized[~valid_mask] = np.sign(residuals_penalized[~valid_mask]) * penalty
+    
+    # Check if we have any valid points
+    if not np.any(valid_mask):
+        # Return all-penalty vector
+        if verbose >= 2:
+            print("  [Warning] All points filtered out. Returning penalty.")
+    
+    # Apply penalty and handle NaNs
+    # Active
+    residuals_active[~np.isfinite(residuals_active)] = penalty 
+    residuals_active[~valid_mask] = np.sign(residuals_active[~valid_mask]) * penalty
+    # Make sure sign is not zero if residual was 0 (unlikely for invalid) or nan
+    residuals_active[residuals_active == 0] = penalty 
+    
+    # Passive
+    residuals_passive[~np.isfinite(residuals_passive)] = penalty
+    residuals_passive[~valid_mask] = np.sign(residuals_passive[~valid_mask]) * penalty
+    residuals_passive[residuals_passive == 0] = penalty
 
-    all_residuals = residuals_penalized  # fixed length
+    # Concatenate residuals if passive data exists
+    if target_data.get('passive_force_matrix') is not None:
+        all_residuals = np.concatenate([residuals_active, residuals_passive])
+    else:
+        all_residuals = residuals_active
+
     mse = np.mean(all_residuals**2)
     
     sim_time = time.time() - sim_start_time
-    
-    sim_time = time.time() - sim_start_time
+    # sim_time = time.time() - sim_start_time # Removed duplicate line
     iter_time = time.time() - iter_start_time
     
     if verbose >= 1:
         print(f"  Simulation completed: {sim_time:.2f}s")
-        print(f"  Residuals: {all_residuals}")
+        # print(f"  Residuals: {all_residuals}") # Too verbose for concatenated
 
         print(f"  MSE: {mse:.6f}")
         print(f"  Total iteration time: {iter_time:.2f}s")
@@ -446,9 +476,15 @@ def plot_results(best_params, target_data, muscle_name, initial_params=None):
     mtu_lengths = target_data['mtu_lengths']
     dense_L_phy = np.linspace(mtu_lengths.min(), mtu_lengths.max(), 60)
 
-    # Only v=0, activation=1.0
-    f_sim = compute_forces_at_velocity(model, data, 0.0, dense_L_phy, activation=1.0)
-    f_data = target_data['force_matrix'][:, 0]
+    # Only v=0, activation=1.0 and 0.0
+    f_sim_active = compute_forces_at_velocity(model, data, 0.0, dense_L_phy, activation=1.0)
+    f_sim_passive = compute_forces_at_velocity(model, data, 0.0, dense_L_phy, activation=0.0)
+    
+    f_data_active = target_data['force_matrix'][:, 0]
+    if target_data.get('passive_force_matrix') is not None:
+        f_data_passive = target_data['passive_force_matrix'][:, 0]
+    else:
+        f_data_passive = None
 
     fig, ax = plt.subplots(figsize=(6, 4))
     
@@ -458,8 +494,12 @@ def plot_results(best_params, target_data, muscle_name, initial_params=None):
     # Highlight the fitting range
     plot_fitting_range_on_ax(ax, min_len, max_len, label='Fit Range')
 
-    ax.plot(mtu_lengths, f_data, "k.", label="data v=0")
-    ax.plot(dense_L_phy, f_sim, "r-", label="fit v=0")
+    if f_data_passive is not None:
+        ax.plot(mtu_lengths, f_data_passive, "b.", label="data pas", alpha=0.5)
+        ax.plot(dense_L_phy, f_sim_passive, "b--", label="fit pas")
+
+    ax.plot(mtu_lengths, f_data_active, "k.", label="data act")
+    ax.plot(dense_L_phy, f_sim_active, "r-", label="fit act")
     ax.set_title(f"{muscle_name} length-force (v=0)")
     ax.set_xlabel("MTU length (m)")
     ax.set_ylabel("Force (N)")
@@ -485,6 +525,65 @@ def plot_results(best_params, target_data, muscle_name, initial_params=None):
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
     print(f"[Plotting] Saved: {out_path}")
+
+def plot_aggregate_parameter_changes(all_results):
+    """
+    Generates one bar plot per parameter type, comparing Initial vs Fitted values across ALL muscles.
+    
+    Args:
+        all_results: list of tuples (muscle_name, initial_params, fitted_params)
+    """
+    if not all_results:
+        print("No results to plot.")
+        return
+
+    param_names = ['F_max', 'l_opt', 'l_slack', 'v_max', 'W', 'C', 'N', 'K', 'E_REF']
+    muscles = [r[0] for r in all_results]
+    n_muscles = len(muscles)
+    
+    # Setup output directory
+    out_dir = "mujoco_muscle_data/parameter_comparisons"
+    os.makedirs(out_dir, exist_ok=True)
+    
+    # Use a consistent color scheme
+    color_init = 'silver'
+    color_fit = 'dodgerblue'
+    
+    for i, p_name in enumerate(param_names):
+        # Extract data for this parameter
+        vals_init = np.array([r[1][i] for r in all_results])
+        vals_fit = np.array([r[2][i] for r in all_results])
+        
+        # Create figure (adjust width based on number of muscles)
+        fig_width = max(10, n_muscles * 0.5)
+        fig, ax = plt.subplots(figsize=(fig_width, 6))
+        
+        x = np.arange(n_muscles)
+        width = 0.35
+        
+        # Plot bars
+        rects1 = ax.bar(x - width/2, vals_init, width, label='Initial', color=color_init, alpha=0.8)
+        rects2 = ax.bar(x + width/2, vals_fit, width, label='Fitted', color=color_fit, alpha=0.9)
+        
+        # Metadata / styling
+        ax.set_ylabel(f'{p_name} Value')
+        ax.set_title(f'Parameter Comparison: {p_name} (All Muscles)')
+        ax.set_xticks(x)
+        ax.set_xticklabels(muscles, rotation=45, ha='right', fontsize=9)
+        ax.legend()
+        ax.grid(axis='y', linestyle='--', alpha=0.3)
+        
+        # Calculate percent deviations for annotation
+        mean_change = np.mean(np.abs((vals_fit - vals_init) / (vals_init + 1e-9))) * 100
+        ax.text(0.02, 0.95, f"Avg Abs Change: {mean_change:.1f}%", transform=ax.transAxes, 
+                bbox=dict(facecolor='white', alpha=0.8))
+
+        fig.tight_layout()
+        
+        save_path = os.path.join(out_dir, f"compare_{p_name}.png")
+        fig.savefig(save_path, dpi=150)
+        plt.close(fig)
+        print(f"[Plotting] Saved parameter comparison: {save_path}")
 
 
 # %%
@@ -552,7 +651,7 @@ def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle
     
     x0 = [
         base_F, 
-        base_L_opt * 0.95, 
+        base_L_opt * 1.0, 
         base_L_slack* 1.0, 
         base_V_max,  # fixed
         0.56, -2.995732274, 1.5, 5.0, 0.04
@@ -566,8 +665,8 @@ def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle
         # (base_V_max, base_V_max),              # v_max fixed
 
         (base_F * 0.5, base_F * 1.5),          # F_max
-        (base_L_opt * 0.85, base_L_opt * 1.05),  # l_opt
-        (base_L_slack * 0.95, base_L_slack * 1.05), # l_slack
+        (base_L_opt * 0.9, base_L_opt * 1.1),  # l_opt
+        (base_L_slack * 0.9, base_L_slack * 1.1), # l_slack
         (base_V_max, base_V_max + 1e-7),              # v_max fixed
 
         
@@ -581,7 +680,7 @@ def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle
         (-100, -0.01),                          # C = -2.995732274
         (1.5, 1.5 + 1e-7),                            # N = 1.5
         (5.0, 5.0 + 1e-7),                            # K = 5.0
-        (0.01, 1.0)                           # E_REF = 0.04
+        (0.04, 0.04+1e-7)                           # E_REF = 0.04
     ]
     
     # print(f"\n[Optimization] Starting optimization...")
@@ -607,7 +706,7 @@ def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle
         obj_wrapper,
         x0,
         bounds=ls_bounds,
-        max_nfev=10000,  # Increased max evaluations
+        max_nfev=1000,  # Increased max evaluations
         verbose=2 if verbose >= 1 else 0, # Increased verbosity
         jac='3-point',  # More accurate Jacobian approximation (slower but more stable)
         # loss='soft_l1', # Robust loss function to handle outliers/noise better than linear (least squares)
@@ -648,6 +747,9 @@ def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle
     print(f"[Plotting] Calling plot_results with fitted parameters...")
     sys.stdout.flush()
     plot_results(res.x, target_data, muscle_name, initial_params=x0)
+    
+    # Removed plot_parameter_comparison call
+    
     print(f"[Plotting] Plot saved (no plt.show).")
     sys.stdout.flush()
     
@@ -665,6 +767,9 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
     muscles = [f.replace("_sim_total.csv", "") for f in files]
     muscles.sort() # Ensure consistent alphabetical order
     fitted_rows = []
+    
+    # Collection for aggregate plots: (name, init_params, fit_params)
+    all_fitting_results = []
 
     # figure grid
     try:
@@ -685,6 +790,24 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
         if res is None:
             continue
         fitted_rows.append([mname] + list(res))
+        
+        # Re-calculate initial guess to store for comparison
+        try:
+             target_temp = load_length_force_sim(mname, params_csv, data_dir)
+             base_F = target_temp['f_max']
+             base_L_opt = target_temp['l_opt']
+             base_L_slack = target_temp['l_slack']
+             base_V_max = target_temp['v_max']
+             x0_temp = np.array([
+                base_F, 
+                base_L_opt, 
+                base_L_slack, 
+                base_V_max,
+                0.56, -2.995732274, 1.5, 5.0, 0.04
+             ])
+             all_fitting_results.append((mname, x0_temp, res))
+        except Exception:
+             print(f"Warning: Could not reconstruct initial params for {mname}")
 
         if plt is not None:
             row = idx // ncols
@@ -701,15 +824,22 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
             dense_L_phy = np.linspace(mtu_lengths.min(), mtu_lengths.max(), 100)
             
             v_phy = 0.0
-            f_sim = compute_forces_at_velocity(model, data, v_phy, dense_L_phy, activation=1.0)
+            f_sim_active = compute_forces_at_velocity(model, data, v_phy, dense_L_phy, activation=1.0)
+            f_sim_passive = compute_forces_at_velocity(model, data, v_phy, dense_L_phy, activation=0.0)
             
             # Plot fitting range
             min_len, max_len = get_fitting_range(target)
 
             plot_fitting_range_on_ax(ax, min_len, max_len, label='Range')
+            
+            # Passive
+            if target.get('passive_force_matrix') is not None:
+                ax.plot(mtu_lengths, target["passive_force_matrix"][:,0], "b.", label="pass", markersize=2, alpha=0.5)
+                ax.plot(dense_L_phy, f_sim_passive, "b--", linewidth=1)
 
-            ax.plot(mtu_lengths, target["force_matrix"][:,0], "k.", label="data", markersize=3)
-            ax.plot(dense_L_phy, f_sim, "r-", label="fit", linewidth=1)
+            # Active
+            ax.plot(mtu_lengths, target["force_matrix"][:,0], "k.", label="act", markersize=3)
+            ax.plot(dense_L_phy, f_sim_active, "r-", label="fit", linewidth=1)
             ax.set_title(mname)
             ax.set_xlabel("MTU length (m)")
             ax.set_ylabel("Force (N)")
@@ -751,6 +881,11 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
             writer.writerow(header)
             writer.writerows(fitted_rows)
         print(f"Saved fitted parameters: {out_param_csv}")
+
+    # Generate Aggregate Plots
+    if plt is not None and all_fitting_results:
+        print(f"\n[Plotting] Generating aggregate parameter comparison plots...")
+        plot_aggregate_parameter_changes(all_fitting_results)
 
     if plt is not None and n > 0:
         # hide empty subplots
