@@ -207,13 +207,19 @@ def create_virtual_experiment_model(ref_muscle):
     # Needs to finalize connections before initSystem
     model.finalizeConnections()
     
-    # Downcast to Millard2012EquilibriumMuscle to ensure we access all methods
-    # We know the original was Millard.
+    # Downcast to specific muscle type to ensure we access all methods
+    # Try Millard2012EquilibriumMuscle first, then Thelen2003Muscle
     sim_muscle_downcast = osim.Millard2012EquilibriumMuscle.safeDownCast(new_muscle)
     if sim_muscle_downcast is not None:
         # slightly higher damping for stability in velocity solves
         sim_muscle_downcast.setFiberDamping(0.2)
-    
+    else:
+        # Try Thelen2003Muscle
+        sim_muscle_downcast = osim.Thelen2003Muscle.safeDownCast(new_muscle)
+        if sim_muscle_downcast is None:
+            # Fallback to generic Muscle
+            sim_muscle_downcast = osim.Muscle.safeDownCast(new_muscle)
+
     return model, sim_muscle_downcast
 
 def run_velocity_test(muscle_ref, output_dir="osim_muscle_data", norm_velocities=None):
@@ -328,7 +334,7 @@ def run_velocity_test(muscle_ref, output_dir="osim_muscle_data", norm_velocities
     return results
 
 if __name__ == "__main__":
-    model_path = 'opensim_models/Rajagopal/RajagopalLaiUhlrich2023.osim'
+    model_path = 'opensim_models/Gait14dof22musc/gait14dof22musc_planar_20170320.osim'
     if not os.path.exists(model_path):
         print(f"Model not found at {model_path}")
     else:

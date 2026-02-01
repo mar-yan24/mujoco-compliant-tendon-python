@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where:*)",
+      "Bash(where python38)",
+      "Bash(conda env:*)",
+      "Bash(conda run:*)"
+    ]
+  }
+}

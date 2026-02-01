@@ -12,7 +12,7 @@ def main():
     repo_root = os.path.dirname(script_dir)
     
     # Path based on previous file search
-    model_rel_path = os.path.join("myosim_convert", "myo_sim", "leg", "myolegs_hang_compliant.xml")
+    model_rel_path = os.path.join("myosim_convert", "myoassist", "myoLeg22", "myoLeg22_2D_COMPLIANT.xml")
     model_path = os.path.join(repo_root, model_rel_path)
     
     if not os.path.exists(model_path):
