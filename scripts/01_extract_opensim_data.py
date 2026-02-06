@@ -340,9 +340,10 @@ if __name__ == "__main__":
     else:
         full_model = osim.Model(model_path)
         muscles = full_model.getMuscles()
-        out_dir = "osim_muscle_data"
+        out_dir = "osim_muscle_data/gait14dof22musc_planar_20170320"
+        os.makedirs(out_dir, exist_ok=True)
         # Export parameter CSV for downstream fitting (right-side muscles only)
-        export_all_muscle_parameters(full_model, out_csv="osim_muscle_data/all_muscle_parameters.csv")
+        export_all_muscle_parameters(full_model, out_csv=os.path.join(out_dir, "all_muscle_parameters.csv"))
         import matplotlib.pyplot as plt
 
         summary_curves = []
