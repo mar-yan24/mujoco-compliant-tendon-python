@@ -334,16 +334,19 @@ def run_velocity_test(muscle_ref, output_dir="osim_muscle_data", norm_velocities
     return results
 
 if __name__ == "__main__":
-    model_path = 'opensim_models/Gait14dof22musc/gait14dof22musc_planar_20170320.osim'
+    model_path = 'opensim_models/Rajagopal/Rajagopal2016.osim'
     if not os.path.exists(model_path):
         print(f"Model not found at {model_path}")
     else:
         full_model = osim.Model(model_path)
         muscles = full_model.getMuscles()
-        out_dir = "osim_muscle_data/gait14dof22musc_planar_20170320"
+        out_dir = "osim_muscle_data/Rajagopal"
         os.makedirs(out_dir, exist_ok=True)
         # Export parameter CSV for downstream fitting (right-side muscles only)
         export_all_muscle_parameters(full_model, out_csv=os.path.join(out_dir, "all_muscle_parameters.csv"))
+
+        # Only extract edl_r and fdl_r
+        target_muscles = ["edl_r", "fdl_r"]
         import matplotlib.pyplot as plt
 
         summary_curves = []
@@ -352,6 +355,9 @@ if __name__ == "__main__":
             mname = muscle.getName()
             if mname.endswith("_l"):
                 print(f"Skipping left-side muscle {mname}")
+                continue
+            # Only process target muscles if specified
+            if target_muscles and mname not in target_muscles:
                 continue
             sim_res = run_velocity_test(muscle, output_dir=out_dir, norm_velocities=np.array([0.0]))
             summary_curves.append((

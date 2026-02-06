@@ -520,7 +520,7 @@ def plot_results(best_params, target_data, muscle_name, initial_params=None):
     ax.grid(True, alpha=0.3)
     
     # 1. Save Clean Version (No text, tight margins)
-    model_name = "gait14dof22musc_planar_20170320"
+    model_name = "Rajagopal"
     out_dir = f"mujoco_muscle_data/{model_name}"
     os.makedirs(out_dir, exist_ok=True)
     out_path_clean = os.path.join(out_dir, f"{muscle_name}_fit_v0_clean.png")
@@ -569,7 +569,7 @@ def plot_aggregate_parameter_changes(all_results):
     n_muscles = len(muscles)
     
     # Setup output directory
-    model_name = "gait14dof22musc_planar_20170320"
+    model_name = "Rajagopal"
     out_dir = f"mujoco_muscle_data/{model_name}/parameter_comparisons"
     os.makedirs(out_dir, exist_ok=True)
     
@@ -989,19 +989,37 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
 
 # Run fitting for all muscles with v=0 data
 if __name__ == "__main__":
-    model_name = "gait14dof22musc_planar_20170320"
+    model_name = "Rajagopal"
     data_dir = f"osim_muscle_data/{model_name}"
     params_csv = f"osim_muscle_data/{model_name}/all_muscle_parameters.csv"
     out_param_csv = f"mujoco_muscle_data/{model_name}/fitted_params_length_only.csv"
     plot_path = f"mujoco_muscle_data/{model_name}/fitted_length_force_all.png"
 
-    fit_all_muscles_length_only(
-        data_dir=data_dir,
-        params_csv=params_csv,
-        out_param_csv=out_param_csv,
-        plot_path=plot_path,
-        verbose=0
-    )
+    # Only fit edl_r and fdl_r
+    target_muscles = ["edl_r", "fdl_r"]
+
+    # Filter to only target muscles
+    import os as os_module
+    files = [f for f in os_module.listdir(data_dir) if f.endswith("_sim_total.csv")]
+    muscles = [f.replace("_sim_total.csv", "") for f in files]
+    muscles = [m for m in muscles if m in target_muscles]
+
+    fitted_rows = []
+    for mname in muscles:
+        print(f"\n=== Fitting {mname} ===")
+        res = fit_muscle(mname, data_dir=data_dir, params_csv=params_csv, verbose=0)
+        if res is not None:
+            fitted_rows.append([mname] + list(res))
+
+    # Save results
+    if fitted_rows:
+        os_module.makedirs(os_module.path.dirname(out_param_csv), exist_ok=True)
+        header = ["muscle","F_max","l_opt","l_slack","v_max","W","C","N","K","E_REF"]
+        with open(out_param_csv, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
+            writer.writerows(fitted_rows)
+        print(f"\nSaved fitted parameters: {out_param_csv}")
 
     # Post-processing: Apply params to compliant XML
     import subprocess
