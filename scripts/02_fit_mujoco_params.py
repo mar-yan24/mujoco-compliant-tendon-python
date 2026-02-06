@@ -520,8 +520,10 @@ def plot_results(best_params, target_data, muscle_name, initial_params=None):
     ax.grid(True, alpha=0.3)
     
     # 1. Save Clean Version (No text, tight margins)
-    os.makedirs("mujoco_muscle_data", exist_ok=True)
-    out_path_clean = os.path.join("mujoco_muscle_data", f"{muscle_name}_fit_v0_clean.png")
+    model_name = "gait14dof22musc_planar_20170320"
+    out_dir = f"mujoco_muscle_data/{model_name}"
+    os.makedirs(out_dir, exist_ok=True)
+    out_path_clean = os.path.join(out_dir, f"{muscle_name}_fit_v0_clean.png")
     
     # Use tight_layout with small padding
     fig.tight_layout(pad=0.5)
@@ -546,7 +548,7 @@ def plot_results(best_params, target_data, muscle_name, initial_params=None):
     # left/right/top tighter, bottom larger for text
     plt.subplots_adjust(left=0.10, right=0.95, top=0.92, bottom=0.22)
     
-    out_path_info = os.path.join("mujoco_muscle_data", f"{muscle_name}_fit_v0_info.png")
+    out_path_info = os.path.join(out_dir, f"{muscle_name}_fit_v0_info.png")
     fig.savefig(out_path_info, dpi=200)
     plt.close(fig)
     print(f"[Plotting] Saved info plot: {out_path_info}")
@@ -567,7 +569,8 @@ def plot_aggregate_parameter_changes(all_results):
     n_muscles = len(muscles)
     
     # Setup output directory
-    out_dir = "mujoco_muscle_data/parameter_comparisons"
+    model_name = "gait14dof22musc_planar_20170320"
+    out_dir = f"mujoco_muscle_data/{model_name}/parameter_comparisons"
     os.makedirs(out_dir, exist_ok=True)
     
     # Use a consistent color scheme
@@ -986,7 +989,19 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
 
 # Run fitting for all muscles with v=0 data
 if __name__ == "__main__":
-    fit_all_muscles_length_only(verbose=0)
+    model_name = "gait14dof22musc_planar_20170320"
+    data_dir = f"osim_muscle_data/{model_name}"
+    params_csv = f"osim_muscle_data/{model_name}/all_muscle_parameters.csv"
+    out_param_csv = f"mujoco_muscle_data/{model_name}/fitted_params_length_only.csv"
+    plot_path = f"mujoco_muscle_data/{model_name}/fitted_length_force_all.png"
+
+    fit_all_muscles_length_only(
+        data_dir=data_dir,
+        params_csv=params_csv,
+        out_param_csv=out_param_csv,
+        plot_path=plot_path,
+        verbose=0
+    )
 
     # Post-processing: Apply params to compliant XML
     import subprocess
