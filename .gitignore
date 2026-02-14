@@ -54,3 +54,5 @@ videos/
 # data
 # /mujoco_muscle_data/
 # /osim_muscle_data/
+/.claude
+nul
