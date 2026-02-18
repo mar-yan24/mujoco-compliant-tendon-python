@@ -520,7 +520,7 @@ def plot_results(best_params, target_data, muscle_name, initial_params=None):
     ax.grid(True, alpha=0.3)
     
     # 1. Save Clean Version (No text, tight margins)
-    model_name = "Rajagopal"
+    model_name = "gait14dof22musc_planar_20170320"
     out_dir = f"mujoco_muscle_data/{model_name}"
     os.makedirs(out_dir, exist_ok=True)
     out_path_clean = os.path.join(out_dir, f"{muscle_name}_fit_v0_clean.png")
@@ -569,7 +569,7 @@ def plot_aggregate_parameter_changes(all_results):
     n_muscles = len(muscles)
     
     # Setup output directory
-    model_name = "Rajagopal"
+    model_name = "gait14dof22musc_planar_20170320"
     out_dir = f"mujoco_muscle_data/{model_name}/parameter_comparisons"
     os.makedirs(out_dir, exist_ok=True)
     
@@ -989,20 +989,21 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
 
 # Run fitting for all muscles with v=0 data
 if __name__ == "__main__":
-    model_name = "Rajagopal"
+    model_name = "gait14dof22musc_planar_20170320"
     data_dir = f"osim_muscle_data/{model_name}"
     params_csv = f"osim_muscle_data/{model_name}/all_muscle_parameters.csv"
     out_param_csv = f"mujoco_muscle_data/{model_name}/fitted_params_length_only.csv"
     plot_path = f"mujoco_muscle_data/{model_name}/fitted_length_force_all.png"
 
-    # Only fit edl_r and fdl_r
-    target_muscles = ["edl_r", "fdl_r"]
+    # Fit all muscles (set to [] to fit all)
+    target_muscles = []
 
     # Filter to only target muscles
     import os as os_module
     files = [f for f in os_module.listdir(data_dir) if f.endswith("_sim_total.csv")]
     muscles = [f.replace("_sim_total.csv", "") for f in files]
-    muscles = [m for m in muscles if m in target_muscles]
+    if target_muscles:
+        muscles = [m for m in muscles if m in target_muscles]
 
     fitted_rows = []
     for mname in muscles:
@@ -1030,7 +1031,7 @@ if __name__ == "__main__":
     
     src_xml = os.path.join(repo_root, "myosim_convert", "myo_sim", "leg", "assets", "myolegs_muscle_rigid.xml")
     target_xml = os.path.join(repo_root, "myosim_convert", "myo_sim", "leg", "assets", "myolegs_muscle_compliant.xml")
-    csv_path = os.path.join(repo_root, "mujoco_muscle_data", "fitted_params_length_only.csv")
+    csv_path = os.path.join(repo_root, out_param_csv)
     
     # 1. Ensure compliant XML exists (copy from base to ensure fresh structure)
     print(f"\n[Apply] Creating/Overwriting {os.path.basename(target_xml)} from base...")

@@ -233,9 +233,9 @@ def run_velocity_test(muscle_ref, output_dir="osim_muscle_data", norm_velocities
     l_opt = muscle_ref.getOptimalFiberLength()
     l_slack = muscle_ref.getTendonSlackLength()
     min_len = l_slack
-    max_len = 2.0 * l_opt + l_slack
+    max_len = 4.0 * l_opt + l_slack
     print(f"[{muscle_name}] l_opt={l_opt:.6f}, l_slack={l_slack:.6f}")
-    print(f"[{muscle_name}] MTU range formula: min_len = l_slack -> {min_len:.6f}, max_len = 2.0*l_opt + l_slack -> {max_len:.6f}")
+    print(f"[{muscle_name}] MTU range formula: min_len = l_slack -> {min_len:.6f}, max_len = 4.0*l_opt + l_slack -> {max_len:.6f}")
 
     # Define ranges
     num_points = 40 # finer resolution for smoother curve
@@ -334,19 +334,19 @@ def run_velocity_test(muscle_ref, output_dir="osim_muscle_data", norm_velocities
     return results
 
 if __name__ == "__main__":
-    model_path = 'opensim_models/Rajagopal/Rajagopal2016.osim'
+    model_path = 'opensim_models/Gait14dof22musc/gait14dof22musc_planar_20170320.osim'
     if not os.path.exists(model_path):
         print(f"Model not found at {model_path}")
     else:
         full_model = osim.Model(model_path)
         muscles = full_model.getMuscles()
-        out_dir = "osim_muscle_data/Rajagopal"
+        out_dir = "osim_muscle_data/gait14dof22musc_planar_20170320"
         os.makedirs(out_dir, exist_ok=True)
         # Export parameter CSV for downstream fitting (right-side muscles only)
         export_all_muscle_parameters(full_model, out_csv=os.path.join(out_dir, "all_muscle_parameters.csv"))
 
-        # Only extract edl_r and fdl_r
-        target_muscles = ["edl_r", "fdl_r"]
+        # Extract all right-side muscles (set to [] or None to extract all)
+        target_muscles = []
         import matplotlib.pyplot as plt
 
         summary_curves = []
