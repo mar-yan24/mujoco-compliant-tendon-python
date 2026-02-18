@@ -233,9 +233,9 @@ def run_velocity_test(muscle_ref, output_dir="osim_muscle_data", norm_velocities
     l_opt = muscle_ref.getOptimalFiberLength()
     l_slack = muscle_ref.getTendonSlackLength()
     min_len = l_slack
-    max_len = 4.0 * l_opt + l_slack
+    max_len = 2.0 * l_opt + l_slack
     print(f"[{muscle_name}] l_opt={l_opt:.6f}, l_slack={l_slack:.6f}")
-    print(f"[{muscle_name}] MTU range formula: min_len = l_slack -> {min_len:.6f}, max_len = 4.0*l_opt + l_slack -> {max_len:.6f}")
+    print(f"[{muscle_name}] MTU range formula: min_len = l_slack -> {min_len:.6f}, max_len = 2.0*l_opt + l_slack -> {max_len:.6f}")
 
     # Define ranges
     num_points = 40 # finer resolution for smoother curve
@@ -309,6 +309,32 @@ def run_velocity_test(muscle_ref, output_dir="osim_muscle_data", norm_velocities
             results['passive_force'][i, j] = f_passive
             results['total_force'][i, j] = f_total
             results['active_force'][i, j] = f_total - f_passive
+    # Post-processing: trim anomalous trailing data points.
+    # At extreme MTU lengths the OpenSim equilibrium solver can fail to converge,
+    # producing values that drop sharply instead of continuing to rise.
+    # Passive force is physically non-decreasing, so a sudden drop (>50% relative to
+    # the previous point) signals a bad data point. Trim from the tail backward.
+    passive_col = results['passive_force'][:, 0]
+    total_col   = results['total_force'][:, 0]
+    valid_n = len(passive_col)
+    for k in range(len(passive_col) - 1, 0, -1):
+        p_curr = passive_col[k]
+        p_prev = passive_col[k - 1]
+        is_nan  = np.isnan(p_curr) or np.isnan(total_col[k])
+        is_drop = (p_prev > 1e-3) and (p_curr < 0.5 * p_prev)
+        if is_nan or is_drop:
+            valid_n = k
+        else:
+            break  # stop at first clean point from the end
+    if valid_n < len(passive_col):
+        print(f"[{muscle_name}] Trimming {len(passive_col) - valid_n} anomalous trailing point(s) "
+              f"(keeping {valid_n}/{len(passive_col)})")
+        results['mtu_lengths'] = results['mtu_lengths'][:valid_n]
+        for key in ['active_force', 'passive_force', 'total_force']:
+            results[key] = results[key][:valid_n, :]
+    # Keep mtu_lengths in sync so write_surface closure uses the (possibly trimmed) array
+    mtu_lengths = results['mtu_lengths']
+
     # Save results to CSV (Using csv module instead of pandas)
     def write_surface(name, data):
         fname = os.path.join(output_dir, f"{muscle_name}_sim_{name}.csv")
