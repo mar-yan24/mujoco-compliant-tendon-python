@@ -222,20 +222,27 @@ def create_virtual_experiment_model(ref_muscle):
 
     return model, sim_muscle_downcast
 
-def run_velocity_test(muscle_ref, output_dir="osim_muscle_data", norm_velocities=None):
+def run_velocity_test(muscle_ref, output_dir="osim_muscle_data", norm_velocities=None, max_len_override=None):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-        
+
     muscle_name = muscle_ref.getName()
     print(f"Starting simulation for {muscle_name}...")
-    
+
     # Set MTU length range from l_opt / l_slack
     l_opt = muscle_ref.getOptimalFiberLength()
     l_slack = muscle_ref.getTendonSlackLength()
     min_len = l_slack
-    max_len = 2.0 * l_opt + l_slack
-    print(f"[{muscle_name}] l_opt={l_opt:.6f}, l_slack={l_slack:.6f}")
-    print(f"[{muscle_name}] MTU range formula: min_len = l_slack -> {min_len:.6f}, max_len = 2.0*l_opt + l_slack -> {max_len:.6f}")
+    formula_max = 2.0 * l_opt + l_slack
+    # Use physiological max from joint ROM if it exceeds the formula-based range
+    if max_len_override is not None and max_len_override > formula_max:
+        max_len = max_len_override
+        print(f"[{muscle_name}] l_opt={l_opt:.6f}, l_slack={l_slack:.6f}")
+        print(f"[{muscle_name}] MTU range: min_len={min_len:.6f}, max_len={max_len:.6f} (physiological ROM, formula was {formula_max:.6f})")
+    else:
+        max_len = formula_max
+        print(f"[{muscle_name}] l_opt={l_opt:.6f}, l_slack={l_slack:.6f}")
+        print(f"[{muscle_name}] MTU range formula: min_len = l_slack -> {min_len:.6f}, max_len = 2.0*l_opt + l_slack -> {max_len:.6f}")
 
     # Define ranges
     num_points = 40 # finer resolution for smoother curve
@@ -385,7 +392,10 @@ if __name__ == "__main__":
             # Only process target muscles if specified
             if target_muscles and mname not in target_muscles:
                 continue
-            sim_res = run_velocity_test(muscle, output_dir=out_dir, norm_velocities=np.array([0.0]))
+            # Use joint-ROM-based physiological range as upper bound if it exceeds the formula
+            _, phys_max = estimate_mtu_length_range(full_model, muscle)
+            sim_res = run_velocity_test(muscle, output_dir=out_dir, norm_velocities=np.array([0.0]),
+                                        max_len_override=phys_max)
             summary_curves.append((
                 mname,
                 sim_res['mtu_lengths'],
