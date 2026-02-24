@@ -367,13 +367,22 @@ def run_velocity_test(muscle_ref, output_dir="osim_muscle_data", norm_velocities
     return results
 
 if __name__ == "__main__":
-    model_path = 'opensim_models/Gait14dof22musc/gait14dof22musc_planar_20170320.osim'
+    import sys as _sys
+    # Allow overriding model via command-line: python 01_... [gait14dof|rajagopal]
+    _model_arg = _sys.argv[1].lower() if len(_sys.argv) > 1 else "rajagopal"
+    if _model_arg == "gait14dof":
+        model_path = 'opensim_models/Gait14dof22musc/gait14dof22musc_planar_20170320.osim'
+        model_name = "gait14dof22musc_planar_20170320"
+    else:
+        model_path = 'opensim_models/Rajagopal/Rajagopal2016.osim'
+        model_name = "Rajagopal"
+
     if not os.path.exists(model_path):
         print(f"Model not found at {model_path}")
     else:
         full_model = osim.Model(model_path)
         muscles = full_model.getMuscles()
-        out_dir = "osim_muscle_data/gait14dof22musc_planar_20170320"
+        out_dir = f"osim_muscle_data/{model_name}"
         os.makedirs(out_dir, exist_ok=True)
         # Export parameter CSV for downstream fitting (right-side muscles only)
         export_all_muscle_parameters(full_model, out_csv=os.path.join(out_dir, "all_muscle_parameters.csv"))

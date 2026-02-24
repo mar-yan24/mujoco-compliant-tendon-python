@@ -989,7 +989,7 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
 
 # Run fitting for all muscles with v=0 data
 if __name__ == "__main__":
-    model_name = "gait14dof22musc_planar_20170320"
+    model_name = sys.argv[1] if len(sys.argv) > 1 else "Rajagopal"
     data_dir = f"osim_muscle_data/{model_name}"
     params_csv = f"osim_muscle_data/{model_name}/all_muscle_parameters.csv"
     out_param_csv = f"mujoco_muscle_data/{model_name}/fitted_params_length_only.csv"
