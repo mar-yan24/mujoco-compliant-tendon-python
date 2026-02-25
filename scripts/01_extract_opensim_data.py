@@ -370,6 +370,8 @@ if __name__ == "__main__":
     import sys as _sys
     # Allow overriding model via command-line: python 01_... [gait14dof|rajagopal]
     _model_arg = _sys.argv[1].lower() if len(_sys.argv) > 1 else "rajagopal"
+    _out_dir_override = _sys.argv[2] if len(_sys.argv) > 2 else None
+    _target_muscles_arg = _sys.argv[3] if len(_sys.argv) > 3 else None
     if _model_arg == "gait14dof":
         model_path = 'opensim_models/Gait14dof22musc/gait14dof22musc_planar_20170320.osim'
         model_name = "gait14dof22musc_planar_20170320"
@@ -382,13 +384,13 @@ if __name__ == "__main__":
     else:
         full_model = osim.Model(model_path)
         muscles = full_model.getMuscles()
-        out_dir = f"osim_muscle_data/{model_name}"
+        out_dir = _out_dir_override if _out_dir_override else f"osim_muscle_data/{model_name}"
         os.makedirs(out_dir, exist_ok=True)
         # Export parameter CSV for downstream fitting (right-side muscles only)
         export_all_muscle_parameters(full_model, out_csv=os.path.join(out_dir, "all_muscle_parameters.csv"))
 
         # Extract all right-side muscles (set to [] or None to extract all)
-        target_muscles = []
+        target_muscles = _target_muscles_arg.split(",") if _target_muscles_arg else []
         import matplotlib.pyplot as plt
 
         summary_curves = []

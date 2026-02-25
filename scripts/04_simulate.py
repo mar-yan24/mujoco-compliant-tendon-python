@@ -6,14 +6,21 @@ import csv
 import matplotlib.pyplot as plt
 
 def main():
+    import sys as _sys
     # 1. Define Model Path
     # Assuming repository root is parent of 'scripts'
     script_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.dirname(script_dir)
-    
+
+    _model_path_override = _sys.argv[1] if len(_sys.argv) > 1 else None
+    _out_dir_override = _sys.argv[2] if len(_sys.argv) > 2 else None
+
     # Path based on previous file search
-    model_rel_path = os.path.join("myosim_convert", "myoassist", "myoLeg22", "myoLeg22_2D_COMPLIANT.xml")
-    model_path = os.path.join(repo_root, model_rel_path)
+    if _model_path_override:
+        model_path = _model_path_override
+    else:
+        model_rel_path = os.path.join("myosim_convert", "myoassist", "myoLeg22", "myoLeg22_2D_COMPLIANT.xml")
+        model_path = os.path.join(repo_root, model_rel_path)
     
     if not os.path.exists(model_path):
         print(f"Model not found at: {model_path}")
@@ -47,8 +54,10 @@ def main():
     n_frames = 60
     
     # Ensure output dir
-    # Ensure output dir
-    base_output_dir = os.path.join(repo_root, "simulation_outputs", "run_latest")
+    if _out_dir_override:
+        base_output_dir = _out_dir_override
+    else:
+        base_output_dir = os.path.join(repo_root, "simulation_outputs", "run_latest")
     videos_dir = os.path.join(base_output_dir, "videos")
     plots_dir = os.path.join(base_output_dir, "plots")
     

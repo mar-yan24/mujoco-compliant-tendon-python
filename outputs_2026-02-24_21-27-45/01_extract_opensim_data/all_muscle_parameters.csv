@@ -1,0 +1,12 @@
+muscle,max_isometric_force,optimal_fiber_length,tendon_slack_length,max_contraction_velocity
+abd_r,4460.290481,0.0845,0.053,15.0
+add_r,3931.8,0.087,0.06,15.0
+hamstrings_r,4105.465574,0.069,0.349,15.0
+bifemsh_r,557.11475409836,0.11,0.117,15.0
+glut_max_r,3337.583607,0.157,0.048,15.0
+iliopsoas_r,2697.344262,0.117,0.13,15.0
+rect_fem_r,2191.74098360656,0.076,0.346,15.0
+vasti_r,9593.95082,0.099,0.102,15.0
+gastroc_r,4690.57377,0.051,0.384,15.0
+soleus_r,7924.996721,0.044,0.244,15.0
+tib_ant_r,2116.818162,0.068,0.238,15.0

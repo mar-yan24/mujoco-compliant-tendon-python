@@ -463,7 +463,7 @@ def objective_function(x, target_data, verbose=1):
 # ==========================================
 # 6. Plotting Function
 # ==========================================
-def plot_results(best_params, target_data, muscle_name, initial_params=None):
+def plot_results(best_params, target_data, muscle_name, initial_params=None, out_dir=None):
     print("\n[Plotting] Generating length-only plot (v=0)...")
     F_max, l_opt, l_slack, v_max, W, C, N, K, E_REF = best_params
     cp_params = CompliantTendonParams(
@@ -479,7 +479,7 @@ def plot_results(best_params, target_data, muscle_name, initial_params=None):
     # Only v=0, activation=1.0 and 0.0
     f_sim_active = compute_forces_at_velocity(model, data, 0.0, dense_L_phy, activation=1.0)
     f_sim_passive = compute_forces_at_velocity(model, data, 0.0, dense_L_phy, activation=0.0)
-    
+
     f_data_active = target_data['force_matrix'][:, 0]
     if target_data.get('passive_force_matrix') is not None:
         f_data_passive = target_data['passive_force_matrix'][:, 0]
@@ -487,14 +487,14 @@ def plot_results(best_params, target_data, muscle_name, initial_params=None):
         f_data_passive = None
 
     fig, ax = plt.subplots(figsize=(6, 4))
-    
+
     # Plot fitting range
     min_len, max_len = get_fitting_range(target_data)
-    
+
     # Highlight the fitting range
     # Highlight the fitting range
     plot_fitting_range_on_ax(ax, min_len, max_len, label='Fitting Range')
-    
+
     # Reference Lines for Total Length limits
     # 1. Target (OpenSim)
     if 'l_opt' in target_data and 'l_slack' in target_data:
@@ -518,10 +518,11 @@ def plot_results(best_params, target_data, muscle_name, initial_params=None):
     # Legend outside
     ax.legend(fontsize="small", loc='center left', bbox_to_anchor=(1, 0.5))
     ax.grid(True, alpha=0.3)
-    
+
     # 1. Save Clean Version (No text, tight margins)
-    model_name = "gait14dof22musc_planar_20170320"
-    out_dir = f"mujoco_muscle_data/{model_name}"
+    if out_dir is None:
+        model_name = "gait14dof22musc_planar_20170320"
+        out_dir = f"mujoco_muscle_data/{model_name}"
     os.makedirs(out_dir, exist_ok=True)
     out_path_clean = os.path.join(out_dir, f"{muscle_name}_fit_v0_clean.png")
     
@@ -553,12 +554,13 @@ def plot_results(best_params, target_data, muscle_name, initial_params=None):
     plt.close(fig)
     print(f"[Plotting] Saved info plot: {out_path_info}")
 
-def plot_aggregate_parameter_changes(all_results):
+def plot_aggregate_parameter_changes(all_results, out_dir=None):
     """
     Generates one bar plot per parameter type, comparing Initial vs Fitted values across ALL muscles.
-    
+
     Args:
         all_results: list of tuples (muscle_name, initial_params, fitted_params)
+        out_dir: output directory for plots (optional)
     """
     if not all_results:
         print("No results to plot.")
@@ -567,10 +569,13 @@ def plot_aggregate_parameter_changes(all_results):
     param_names = ['F_max', 'l_opt', 'l_slack', 'v_max', 'W', 'C', 'N', 'K', 'E_REF']
     muscles = [r[0] for r in all_results]
     n_muscles = len(muscles)
-    
+
     # Setup output directory
-    model_name = "gait14dof22musc_planar_20170320"
-    out_dir = f"mujoco_muscle_data/{model_name}/parameter_comparisons"
+    if out_dir is None:
+        model_name = "gait14dof22musc_planar_20170320"
+        out_dir = f"mujoco_muscle_data/{model_name}/parameter_comparisons"
+    else:
+        out_dir = os.path.join(out_dir, "parameter_comparisons")
     os.makedirs(out_dir, exist_ok=True)
     
     # Use a consistent color scheme
@@ -628,7 +633,7 @@ def callback_function(xk, state=None):
         print(f"    W={xk[4]:.4f}, C={xk[5]:.4f}, N={xk[6]:.4f}, K={xk[7]:.4f}, E_REF={xk[8]:.4f}")
     return False
 
-def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle_data/all_muscle_parameters.csv", verbose=1):
+def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle_data/all_muscle_parameters.csv", verbose=1, out_dir=None):
     """
     Fit muscle parameters
     
@@ -774,7 +779,7 @@ def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle
 
     print(f"[Plotting] Calling plot_results with fitted parameters...")
     sys.stdout.flush()
-    plot_results(res.x, target_data, muscle_name, initial_params=x0)
+    plot_results(res.x, target_data, muscle_name, initial_params=x0, out_dir=out_dir)
     
     # Removed plot_parameter_comparison call
     
@@ -990,10 +995,24 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
 # Run fitting for all muscles with v=0 data
 if __name__ == "__main__":
     model_name = sys.argv[1] if len(sys.argv) > 1 else "Rajagopal"
-    data_dir = f"osim_muscle_data/{model_name}"
-    params_csv = f"osim_muscle_data/{model_name}/all_muscle_parameters.csv"
-    out_param_csv = f"mujoco_muscle_data/{model_name}/fitted_params_length_only.csv"
-    plot_path = f"mujoco_muscle_data/{model_name}/fitted_length_force_all.png"
+    _data_dir_override = sys.argv[2] if len(sys.argv) > 2 else None
+    _out_dir_override = sys.argv[3] if len(sys.argv) > 3 else None
+
+    if _data_dir_override:
+        data_dir = _data_dir_override
+        params_csv = os.path.join(_data_dir_override, "all_muscle_parameters.csv")
+    else:
+        data_dir = f"osim_muscle_data/{model_name}"
+        params_csv = f"osim_muscle_data/{model_name}/all_muscle_parameters.csv"
+
+    if _out_dir_override:
+        out_param_csv = os.path.join(_out_dir_override, "fitted_params_length_only.csv")
+        plot_path = os.path.join(_out_dir_override, "fitted_length_force_all.png")
+        fit_out_dir = _out_dir_override
+    else:
+        out_param_csv = f"mujoco_muscle_data/{model_name}/fitted_params_length_only.csv"
+        plot_path = f"mujoco_muscle_data/{model_name}/fitted_length_force_all.png"
+        fit_out_dir = None
 
     # Fit all muscles (set to [] to fit all)
     target_muscles = []
@@ -1008,13 +1027,15 @@ if __name__ == "__main__":
     fitted_rows = []
     for mname in muscles:
         print(f"\n=== Fitting {mname} ===")
-        res = fit_muscle(mname, data_dir=data_dir, params_csv=params_csv, verbose=0)
+        res = fit_muscle(mname, data_dir=data_dir, params_csv=params_csv, verbose=0, out_dir=fit_out_dir)
         if res is not None:
             fitted_rows.append([mname] + list(res))
 
     # Save results
     if fitted_rows:
-        os_module.makedirs(os_module.path.dirname(out_param_csv), exist_ok=True)
+        out_dir_params = os_module.path.dirname(out_param_csv)
+        if out_dir_params:
+            os_module.makedirs(out_dir_params, exist_ok=True)
         header = ["muscle","F_max","l_opt","l_slack","v_max","W","C","N","K","E_REF"]
         with open(out_param_csv, "w", newline="") as f:
             writer = csv.writer(f)
