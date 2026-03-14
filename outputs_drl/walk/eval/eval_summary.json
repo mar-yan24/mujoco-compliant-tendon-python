@@ -1,0 +1,20 @@
+{
+  "baseline": {
+    "reward_mean": 634.8714776174696,
+    "reward_std": 73.24106834866443,
+    "episode_length_mean": 586.3333333333334,
+    "avg_forward_vel": 0.5334001412889752,
+    "avg_pelvis_height": 0.8628383872554379,
+    "avg_ctrl_norm": 2.7533587765053453,
+    "avg_force_norm": 8673.980277304816
+  },
+  "compliant": {
+    "reward_mean": 362.87116471919506,
+    "reward_std": 23.168194687314493,
+    "episode_length_mean": 421.3333333333333,
+    "avg_forward_vel": 0.41672592803423275,
+    "avg_pelvis_height": 0.8506234818408842,
+    "avg_ctrl_norm": 2.9167469561741424,
+    "avg_force_norm": 9419.10647140333
+  }
+}
