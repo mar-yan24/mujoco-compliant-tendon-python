@@ -405,7 +405,10 @@ if __name__ == "__main__":
                 continue
             # Use joint-ROM-based physiological range as upper bound if it exceeds the formula
             _, phys_max = estimate_mtu_length_range(full_model, muscle)
-            sim_res = run_velocity_test(muscle, output_dir=out_dir, norm_velocities=np.array([0.0]),
+            # Extract at multiple velocities for dynamic validation (Phase 2a)
+            # v=0 is used for static fitting; non-zero velocities enable FV validation
+            extraction_velocities = np.array([-0.5, -0.25, 0.0, 0.25, 0.5])
+            sim_res = run_velocity_test(muscle, output_dir=out_dir, norm_velocities=extraction_velocities,
                                         max_len_override=phys_max)
             summary_curves.append((
                 mname,

@@ -20,6 +20,13 @@ from tqdm import tqdm
 
 # %%
 # ==========================================
+# 0. Constants
+# ==========================================
+PASSIVE_WEIGHT = 2.0  # Weight multiplier for passive force residuals (matches 02b)
+
+
+# %%
+# ==========================================
 # 1. Class Definitions
 # ==========================================
 class CompliantTendonParams:
@@ -398,7 +405,7 @@ def objective_function(x, target_data, verbose=1):
 
     # Calculate residuals and filter out pathological simulation points
     residuals_active = f_sim_active - f_target_active
-    residuals_passive = f_sim_passive - f_target_passive
+    residuals_passive = (f_sim_passive - f_target_passive) * PASSIVE_WEIGHT
 
     # Base validity: finite and not excessively large (>|5 * F_max|)
     valid_mask = np.isfinite(f_sim_active) & (np.abs(f_sim_active) <= 5.0 * ref_f_max)
@@ -681,39 +688,49 @@ def fit_muscle(muscle_name, data_dir="osim_muscle_data", params_csv="osim_muscle
     base_L_opt = target_data['l_opt']
     base_L_slack = target_data['l_slack']
     base_V_max = target_data['v_max']
-    
+
+    # Per-muscle E_REF initialization based on tendon compliance ratio
+    # High ratio = long tendon (compliant), low ratio = short tendon (stiff)
+    tendon_ratio = base_L_slack / base_L_opt if base_L_opt > 0 else 1.0
+    if tendon_ratio < 1.0:
+        # Short tendon: use lower E_REF (stiffer)
+        E_REF_init = 0.01
+        E_REF_lo = 0.005
+        E_REF_hi = 0.03
+    elif tendon_ratio < 3.0:
+        # Medium tendon
+        E_REF_init = 0.02
+        E_REF_lo = 0.005
+        E_REF_hi = 0.06
+    else:
+        # Long tendon (gastroc, soleus): genuinely compliant
+        E_REF_init = min(0.06, 0.04 * tendon_ratio / 5.0)
+        E_REF_lo = 0.01
+        E_REF_hi = 0.10
+
+    print(f"  Tendon ratio (l_slack/l_opt): {tendon_ratio:.2f} -> E_REF_init={E_REF_init:.4f} [{E_REF_lo:.3f}, {E_REF_hi:.3f}]")
+
     x0 = [
-        base_F, 
-        base_L_opt * 1.0, 
-        base_L_slack* 1.0, 
+        base_F,
+        base_L_opt * 1.0,
+        base_L_slack * 1.0,
         base_V_max,  # fixed
-        0.56, -2.995732274, 1.5, 5.0, 0.04
+        0.56, -2.995732274, 1.5, 5.0, E_REF_init
     ]
-    
-    # Bounds: v_max fixed; others allowed to vary
+
+    # Bounds: v_max fixed; N, K, E_REF now UNLOCKED for all muscles
+    # C bounds tightened from [-100, -0.01] to [-5.0, -0.5] to prevent extreme narrowing
     bounds = [
-        # (base_F, base_F),          # F_max
-        # (base_L_opt, base_L_opt),  # l_opt
-        # (base_L_slack, base_L_slack), # l_slack
-        # (base_V_max, base_V_max),              # v_max fixed
+        (base_F * 0.5, base_F * 1.5),              # F_max
+        (base_L_opt * 0.8, base_L_opt * 1.2),      # l_opt (wider than before)
+        (base_L_slack * 0.8, base_L_slack * 1.2),   # l_slack (wider than before)
+        (base_V_max, base_V_max + 1e-7),            # v_max fixed
 
-        (base_F * 0.5, base_F * 1.5),          # F_max
-        (base_L_opt * 0.9, base_L_opt * 1.1),  # l_opt
-        (base_L_slack * 0.9, base_L_slack * 1.1), # l_slack
-        (base_V_max, base_V_max + 1e-7),              # v_max fixed
-
-        
-        # (0.56, 0.56 + 1e-7),                            # W = 0.56
-        # (-2.995732274, -2.995732274 + 1e-7),                          # C = -2.995732274
-        # (1.5, 1.5 + 1e-7),                            # N = 1.5
-        # (5.0, 5.0 + 1e-7),                            # K = 5.0
-        # (0.04, 0.04 + 1e-7)                           # E_REF = 0.04
-
-        (0.01, 10),                            # W = 0.56
-        (-100, -0.01),                          # C = -2.995732274
-        (1.5, 1.5 + 1e-7),                            # N = 1.5
-        (5.0, 5.0 + 1e-7),                            # K = 5.0
-        (0.04, 0.04+1e-7)                           # E_REF = 0.04
+        (0.1, 3.0),                                  # W (tightened from [0.01, 10])
+        (-5.0, -0.5),                                # C (TIGHTENED from [-100, -0.01])
+        (0.5, 3.0),                                  # N (UNLOCKED from 1.5 fixed)
+        (2.0, 10.0),                                 # K (UNLOCKED from 5.0 fixed)
+        (E_REF_lo, E_REF_hi),                        # E_REF (UNLOCKED, per-muscle bounds)
     ]
     
     # print(f"\n[Optimization] Starting optimization...")
@@ -834,12 +851,20 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
              base_L_opt = target_temp['l_opt']
              base_L_slack = target_temp['l_slack']
              base_V_max = target_temp['v_max']
+             # Recompute per-muscle E_REF_init for comparison tracking
+             _ratio = base_L_slack / base_L_opt if base_L_opt > 0 else 1.0
+             if _ratio < 1.0:
+                 _e_init = 0.01
+             elif _ratio < 3.0:
+                 _e_init = 0.02
+             else:
+                 _e_init = min(0.06, 0.04 * _ratio / 5.0)
              x0_temp = np.array([
-                base_F, 
-                base_L_opt, 
-                base_L_slack, 
+                base_F,
+                base_L_opt,
+                base_L_slack,
                 base_V_max,
-                0.56, -2.995732274, 1.5, 5.0, 0.04
+                0.56, -2.995732274, 1.5, 5.0, _e_init
              ])
              all_fitting_results.append((mname, x0_temp, res))
         except Exception:
@@ -899,12 +924,19 @@ def fit_all_muscles_length_only(data_dir="osim_muscle_data",
             base_L_opt = target['l_opt']
             base_L_slack = target['l_slack']
             base_V_max = target['v_max']
+            _ratio = base_L_slack / base_L_opt if base_L_opt > 0 else 1.0
+            if _ratio < 1.0:
+                _e_init = 0.01
+            elif _ratio < 3.0:
+                _e_init = 0.02
+            else:
+                _e_init = min(0.06, 0.04 * _ratio / 5.0)
             x0 = [
-                base_F, 
-                base_L_opt, 
-                base_L_slack, 
+                base_F,
+                base_L_opt,
+                base_L_slack,
                 base_V_max,
-                0.56, -2.995732274, 1.5, 5.0, 0.04
+                0.56, -2.995732274, 1.5, 5.0, _e_init
             ]
             
             # Add fitted parameters as text at the bottom
